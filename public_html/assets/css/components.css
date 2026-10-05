@@ -1,0 +1,388 @@
+/* ============================================================
+   Ipil District Jail — Inmate Recording System
+   components.css — reusable UI primitives
+   ============================================================ */
+
+/* ============================================================
+   1. BUTTONS
+   ============================================================ */
+
+.btn-primary,
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.btn-primary {
+  background: var(--navy-800);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--navy-700); }
+
+.btn-secondary {
+  background: #fff;
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-secondary:hover { background: var(--navy-100); }
+
+.btn-sm { padding: 0.35rem 0.7rem; font-size: 0.75rem; }
+
+.btn-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--navy-700);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-link:hover { text-decoration: underline; }
+
+/* ============================================================
+   2. FORMS
+   ============================================================ */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.field > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.field__hint {
+  font-size: 0.68rem;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.field input,
+.field select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  background: #fff;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 2px solid var(--navy-600);
+  outline-offset: 1px;
+  border-color: var(--navy-600);
+}
+
+.input-search,
+.input-select {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--text);
+  background: #fff;
+}
+
+.input-search { flex: 1; min-width: 12rem; }
+
+/* ============================================================
+   3. SECTION HEADER
+   ============================================================ */
+
+.section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-header h1 {
+  margin: 0;
+  color: var(--navy-950);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.section-header p {
+  margin: 0.15rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.section-header__meta,
+.section-header__tools {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* ============================================================
+   4. PANEL
+   ============================================================ */
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  overflow: hidden;
+}
+
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel__header h2 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--navy-950);
+}
+
+.panel__body { padding: 0.85rem; }
+.panel__body--tight { padding: 0.5rem; }
+
+.panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--navy-100);
+}
+
+/* ============================================================
+   5. DATA TABLE
+   ============================================================ */
+
+.data-table-wrap { overflow-x: auto; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.data-table thead th {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--navy-100);
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table tbody td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover { background: var(--navy-100); }
+
+.data-table__empty {
+  padding: 1.5rem 0.75rem !important;
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.ta-right { text-align: right !important; }
+
+/* ============================================================
+   6. BADGES & PILLS
+   ============================================================ */
+
+.role-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.role-badge--admin { background: var(--navy-100); color: var(--navy-800); }
+.role-badge--staff { background: #eef2f7; color: #4b5c74; }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.status-pill::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-pill--on  { color: #0f7a4d; }
+.status-pill--on::before { background: var(--success); }
+
+.status-pill--off { color: #7a2f36; }
+.status-pill--off::before { background: #b04149; }
+
+/* ============================================================
+   7. ICON BUTTONS
+   ============================================================ */
+
+.row-actions {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--navy-700);
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.icon-btn:hover {
+  background: var(--navy-100);
+  border-color: var(--navy-600);
+  color: var(--navy-950);
+}
+
+.icon-btn--danger { color: #8a2a34; }
+.icon-btn--danger:hover {
+  background: #fbeaea;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* ============================================================
+   8. MODAL
+   ============================================================ */
+
+body.modal-open { overflow: hidden; }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(6, 20, 40, 0.55);
+}
+
+.modal-backdrop.is-hidden { display: none; }
+
+.modal {
+  display: block !important;
+  width: 100% !important;
+  max-width: 26rem !important;
+  min-height: 200px !important;
+  height: auto !important;
+  padding: 1rem !important;
+  background: #ffffff !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 40px rgba(6, 20, 40, 0.25) !important;
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 1051 !important;
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal__header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--navy-950);
+}
+
+.modal__close {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.modal__close:hover {
+  background: var(--navy-100);
+  color: var(--navy-800);
+}
+
+.modal__body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.25rem;
+}
+
+.modal__error {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #f3c4c4;
+  border-radius: var(--radius-sm);
+  background: #fdf2f2;
+  color: #8a2a34;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Form error uses the same utility class */
+.modal__error.is-hidden { display: none; }
