@@ -27,23 +27,25 @@ class User
 
     public function all(string $q = '', string $role = '', string $status = '', string $scope = 'active'): array
     {
-        $sql = 'SELECT id, username, full_name, role, is_active, created_at, archived_at
+        $sql = 'SELECT id, username, first_name, middle_name, last_name, full_name,
+                       email, phone, birthdate, sex, civil_status,
+                       employee_no, position, rank, department, date_hired, employment_status,
+                       role, is_active, created_at, archived_at
                 FROM users WHERE 1 = 1';
         $params = [];
         $types = '';
 
-        if ($scope === 'archived') {
-            $sql .= ' AND archived_at IS NOT NULL';
-        } else {
-            $sql .= ' AND archived_at IS NULL';
-        }
+        $sql .= $scope === 'archived'
+            ? ' AND archived_at IS NOT NULL'
+            : ' AND archived_at IS NULL';
 
         if ($q !== '') {
-            $sql .= ' AND (username LIKE ? OR full_name LIKE ?)';
+            $sql .= ' AND (username LIKE ? OR full_name LIKE ? OR employee_no LIKE ?)';
             $like = '%' . $q . '%';
             $params[] = $like;
             $params[] = $like;
-            $types .= 'ss';
+            $params[] = $like;
+            $types .= 'sss';
         }
 
         if ($role !== '') {
@@ -58,7 +60,7 @@ class User
             $sql .= ' AND is_active = 0';
         }
 
-        $sql .= ' ORDER BY role ASC, full_name ASC';
+        $sql .= ' ORDER BY role ASC, last_name ASC, first_name ASC';
 
         $stmt = $this->db->prepare($sql);
         if ($params) {
@@ -69,40 +71,106 @@ class User
         $stmt->close();
 
         foreach ($rows as &$r) {
-            $r['id'] = (int) $r['id'];
+            $r['id']        = (int) $r['id'];
             $r['is_active'] = (bool) $r['is_active'];
         }
         return $rows;
     }
 
-    public function create(string $username, string $fullName, string $role, string $password): int
+    public function find(int $id): ?array
     {
-        $hash = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $this->db->prepare(
-            'INSERT INTO users (username, full_name, role, password, is_active, archived_at)
-             VALUES (?, ?, ?, ?, 1, NULL)'
+            'SELECT * FROM users WHERE id = ? LIMIT 1'
         );
-        $stmt->bind_param('ssss', $username, $fullName, $role, $hash);
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $user = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $user ?: null;
+    }
+
+    public function create(array $data): int
+    {
+        $hash = password_hash($data['password'], PASSWORD_DEFAULT);
+
+        $stmt = $this->db->prepare(
+            'INSERT INTO users
+             (username, first_name, middle_name, last_name, full_name,
+              email, phone, birthdate, sex, civil_status,
+              employee_no, position, rank, department, date_hired, employment_status,
+              role, password, is_active, archived_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)'
+        );
+
+        $stmt->bind_param(
+            'ssssssssssssssssss',
+            $data['username'],
+            $data['first_name'],
+            $data['middle_name'],
+            $data['last_name'],
+            $data['full_name'],
+            $data['email'],
+            $data['phone'],
+            $data['birthdate'],
+            $data['sex'],
+            $data['civil_status'],
+            $data['employee_no'],
+            $data['position'],
+            $data['rank'],
+            $data['department'],
+            $data['date_hired'],
+            $data['employment_status'],
+            $data['role'],
+            $hash
+        );
+
         $stmt->execute();
         $id = (int) $stmt->insert_id;
         $stmt->close();
         return $id;
     }
 
-    public function update(int $id, string $username, string $fullName, string $role, ?string $password): void
+    public function update(int $id, array $data): void
     {
-        if ($password !== null && $password !== '') {
-            $hash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $this->db->prepare(
-                'UPDATE users SET username = ?, full_name = ?, role = ?, password = ? WHERE id = ?'
-            );
-            $stmt->bind_param('ssssi', $username, $fullName, $role, $hash, $id);
-        } else {
-            $stmt = $this->db->prepare(
-                'UPDATE users SET username = ?, full_name = ?, role = ? WHERE id = ?'
-            );
-            $stmt->bind_param('sssi', $username, $fullName, $role, $id);
+        $sql = 'UPDATE users SET
+                    username = ?, first_name = ?, middle_name = ?, last_name = ?, full_name = ?,
+                    email = ?, phone = ?, birthdate = ?, sex = ?, civil_status = ?,
+                    employee_no = ?, position = ?, rank = ?, department = ?, date_hired = ?, employment_status = ?,
+                    role = ?';
+
+        $params = [
+            $data['username'],
+            $data['first_name'],
+            $data['middle_name'],
+            $data['last_name'],
+            $data['full_name'],
+            $data['email'],
+            $data['phone'],
+            $data['birthdate'],
+            $data['sex'],
+            $data['civil_status'],
+            $data['employee_no'],
+            $data['position'],
+            $data['rank'],
+            $data['department'],
+            $data['date_hired'],
+            $data['employment_status'],
+            $data['role'],
+        ];
+        $types = 'sssssssssssssssss';
+
+        if (!empty($data['password'])) {
+            $sql .= ', password = ?';
+            $params[] = password_hash($data['password'], PASSWORD_DEFAULT);
+            $types .= 's';
         }
+
+        $sql .= ' WHERE id = ?';
+        $params[] = $id;
+        $types .= 'i';
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
         $stmt->close();
     }
@@ -153,5 +221,30 @@ class User
         $exists = (bool) $stmt->get_result()->fetch_assoc();
         $stmt->close();
         return $exists;
+    }
+
+    /**
+     * Generate a unique username "{first}.{last}" lowercased.
+     * Appends a numeric suffix if taken.
+     */
+    public function generateUsername(string $firstName, string $lastName, int $excludeId = 0): string
+    {
+        $base = strtolower(
+            preg_replace('/[^a-z0-9]/i', '', $firstName) . '.' .
+            preg_replace('/[^a-z0-9]/i', '', $lastName)
+        );
+        $base = trim($base, '.');
+
+        if ($base === '') $base = 'user';
+
+        $candidate = $base;
+        $suffix = 1;
+
+        while ($this->usernameExists($candidate, $excludeId)) {
+            $candidate = $base . $suffix;
+            $suffix++;
+        }
+
+        return $candidate;
     }
 }

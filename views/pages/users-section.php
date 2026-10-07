@@ -19,8 +19,7 @@ $isUsersActive = ($currentSection ?? '') === 'users';
                 <span id="userArchiveToggleLabel">View Archived</span>
             </button>
             <button type="button" class="btn-primary btn-sm" id="userCreateBtn">
-                <i class="bi bi-plus-lg"></i>
-                New User
+                <i class="bi bi-plus-lg"></i> New User
             </button>
         </div>
     </header>
@@ -32,7 +31,7 @@ $isUsersActive = ($currentSection ?? '') === 'users';
                 <input type="search"
                        id="userSearch"
                        class="input-search"
-                       placeholder="Search by name or username"
+                       placeholder="Search by name, username, or employee no."
                        aria-label="Search users">
             </div>
 
@@ -54,7 +53,8 @@ $isUsersActive = ($currentSection ?? '') === 'users';
                 <thead>
                     <tr>
                         <th>Name</th>
-                        <th>Username</th>
+                        <th>Employee No.</th>
+                        <th>Position</th>
                         <th>Role</th>
                         <th>Status</th>
                         <th id="userDateColHeader">Created</th>
@@ -63,7 +63,7 @@ $isUsersActive = ($currentSection ?? '') === 'users';
                 </thead>
                 <tbody id="userTableBody">
                     <tr>
-                        <td colspan="6" class="data-table__empty">Loading...</td>
+                        <td colspan="7" class="data-table__empty">Loading...</td>
                     </tr>
                 </tbody>
             </table>

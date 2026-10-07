@@ -525,3 +525,48 @@ body.modal-open { overflow: hidden; }
   .dj-modal__footer { flex-direction: column-reverse; align-items: stretch; }
   .dj-modal__footer > * { width: 100%; }
 }
+
+/* ============================================================
+   Wide modal variant (for long forms)
+   ============================================================ */
+
+.dj-modal--wide {
+  max-width: 44rem;
+}
+
+/* ============================================================
+   Sections inside modal forms
+   ============================================================ */
+
+.user-form-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem 1rem;
+  background: #fff;
+}
+
+.user-form-section legend {
+  padding: 0 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.form-grid-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.form-grid-row:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .form-grid-row {
+    grid-template-columns: 1fr;
+  }
+}

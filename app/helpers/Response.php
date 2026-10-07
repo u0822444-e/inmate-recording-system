@@ -7,7 +7,10 @@ class Response
 {
     public static function json(bool $ok, string $message, array $extra = []): void
     {
-        header('Content-Type: application/json; charset=utf-8');
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+
         echo json_encode(array_merge(
             ['success' => $ok, 'message' => $message],
             $extra

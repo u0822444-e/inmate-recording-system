@@ -23,5 +23,10 @@ $pageTitle = $pageTitle ?? 'Ipil District Jail — Inmate Recording System';
     <link rel="stylesheet" href="assets/css/layout.css">
     <link rel="stylesheet" href="assets/css/components.css">
     <link rel="stylesheet" href="assets/css/views.css">
+    
 </head>
 <body>
+
+<script src="assets/js/dashboard.js" defer></script>
+<script src="assets/js/overview.js" defer></script>
+<script src="assets/js/users.js" defer></script>

@@ -47,7 +47,6 @@
 
     closeSidebar();
 
-    /* Persist to URL query string so PHP can render on reload */
     if (updateUrl !== false) {
       var url = new URL(window.location.href);
       if (url.searchParams.get('section') !== name) {
@@ -56,14 +55,13 @@
       }
     }
 
-    /* Notify other modules (users.js etc.) */
     document.dispatchEvent(new CustomEvent('section:changed', {
       detail: { section: name }
     }));
   }
 
   /* ============================================================
-     EVENT WIRING — section triggers
+     SECTION TRIGGERS
      ============================================================ */
 
   triggers.forEach(function (t) {
@@ -74,7 +72,7 @@
   });
 
   /* ============================================================
-     EVENT WIRING — sidebar toggle
+     SIDEBAR TOGGLE
      ============================================================ */
 
   if (menuBtn && sidebar) {
@@ -96,7 +94,81 @@
   });
 
   /* ============================================================
-     BACK / FORWARD — history navigation
+     LOGOUT CONFIRMATION
+     ============================================================ */
+
+  var logoutBtn   = document.getElementById('sidebarLogoutBtn');
+  var logoutModal = document.getElementById('logoutModal');
+
+  function openLogoutModal() {
+    if (!logoutModal) return;
+    logoutModal.classList.remove('is-hidden');
+    document.body.classList.add('modal-open');
+
+    setTimeout(function () {
+      var okBtn = logoutModal.querySelector('#logoutConfirmBtn');
+      if (okBtn) okBtn.focus();
+    }, 50);
+  }
+
+  function closeLogoutModal() {
+    if (!logoutModal) return;
+    logoutModal.classList.add('is-hidden');
+    document.body.classList.remove('modal-open');
+  }
+
+  if (logoutBtn && logoutModal) {
+    logoutBtn.addEventListener('click', openLogoutModal);
+
+    logoutModal.addEventListener('click', function (e) {
+      if (e.target === logoutModal) closeLogoutModal();
+      if (e.target.closest('[data-logout-close]')) closeLogoutModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !logoutModal.classList.contains('is-hidden')) {
+        closeLogoutModal();
+      }
+    });
+  }
+
+  /* ============================================================
+     ALERT BANNER — auto-dismiss
+     ============================================================ */
+
+  var alertBanner = document.querySelector('.alert-banner');
+
+  if (alertBanner) {
+    var dismissAlert = function () {
+      if (alertBanner.classList.contains('is-dismissing')) return;
+      alertBanner.classList.add('is-dismissing');
+      setTimeout(function () { alertBanner.remove(); }, 400);
+    };
+
+    var closeBtn = alertBanner.querySelector('.alert-banner__close');
+    if (closeBtn) closeBtn.addEventListener('click', dismissAlert);
+
+    setTimeout(dismissAlert, 4000);
+  }
+
+  /* ============================================================
+     TAB GROUP
+     ============================================================ */
+
+  document.querySelectorAll('.tab-group').forEach(function (group) {
+    group.addEventListener('click', function (e) {
+      var btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+
+      group.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('is-active');
+      });
+      btn.classList.add('is-active');
+    });
+  });
+
+  /* ============================================================
+     BACK / FORWARD
      ============================================================ */
 
   window.addEventListener('popstate', function () {
@@ -105,8 +177,6 @@
 
   /* ============================================================
      INITIAL RENDER
-     PHP already made the correct section visible — this call
-     only syncs the sidebar and fires section:changed for JS.
      ============================================================ */
 
   showSection(getSectionFromUrl(), false);

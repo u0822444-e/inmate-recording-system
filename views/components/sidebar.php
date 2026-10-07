@@ -57,6 +57,11 @@ $current  = $currentSection ?? 'overview';
         <?php else: ?>
             <p class="sidebar-nav__label">Operations</p>
             <button type="button"
+                    class="sidebar-nav__item <?= $current === 'recording' ? 'is-active' : '' ?>"
+                    data-section="recording">
+                <i class="bi bi-pencil-square"></i><span>Record Inmate</span>
+            </button>
+            <button type="button"
                     class="sidebar-nav__item <?= $current === 'inmates' ? 'is-active' : '' ?>"
                     data-section="inmates">
                 <i class="bi bi-person-badge"></i><span>Inmate Records</span>

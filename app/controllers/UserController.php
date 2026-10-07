@@ -23,13 +23,14 @@ class UserController
 
         $method = $_SERVER['REQUEST_METHOD'];
 
-        if ($method === 'GET' && $action === 'list')          $this->list();
-        elseif ($method === 'POST' && $action === 'create')   $this->create();
-        elseif ($method === 'POST' && $action === 'update')   $this->update();
-        elseif ($method === 'POST' && $action === 'toggle')   $this->toggle();
-        elseif ($method === 'POST' && $action === 'archive')  $this->archive();
-        elseif ($method === 'POST' && $action === 'restore')  $this->restore();
-        elseif ($method === 'POST' && $action === 'delete')   $this->delete();
+        if ($method === 'GET' && $action === 'list')            $this->list();
+        elseif ($method === 'GET' && $action === 'suggest-username') $this->suggestUsername();
+        elseif ($method === 'POST' && $action === 'create')     $this->create();
+        elseif ($method === 'POST' && $action === 'update')     $this->update();
+        elseif ($method === 'POST' && $action === 'toggle')     $this->toggle();
+        elseif ($method === 'POST' && $action === 'archive')    $this->archive();
+        elseif ($method === 'POST' && $action === 'restore')    $this->restore();
+        elseif ($method === 'POST' && $action === 'delete')     $this->delete();
         else Response::json(false, 'Unsupported request.');
     }
 
@@ -46,62 +47,72 @@ class UserController
         ]);
     }
 
+    private function suggestUsername(): void
+    {
+        $first = trim((string) ($_GET['first_name'] ?? ''));
+        $last  = trim((string) ($_GET['last_name'] ?? ''));
+        $id    = (int) ($_GET['id'] ?? 0);
+
+        if ($first === '' || $last === '') {
+            Response::json(false, 'First and last name required.');
+        }
+
+        Response::json(true, 'OK', [
+            'username' => $this->model->generateUsername($first, $last, $id),
+        ]);
+    }
+
     private function create(): void
     {
         $p = Response::readJsonInput();
 
-        $username = trim((string) ($p['username'] ?? ''));
-        $fullName = trim((string) ($p['full_name'] ?? ''));
-        $role     = trim((string) ($p['role'] ?? ''));
-        $password = (string) ($p['password'] ?? '');
+        $fields = $this->extract($p);
+        $this->validate($fields, null);
 
-        if ($username === '' || $fullName === '' || $role === '' || $password === '') {
-            Response::json(false, 'All fields are required.');
+        if ($fields['username'] === '') {
+            $fields['username'] = $this->model->generateUsername(
+                $fields['first_name'],
+                $fields['last_name']
+            );
         }
-        if (!in_array($role, ['Administrator', 'Staff / Officer'], true)) {
-            Response::json(false, 'Invalid role.');
-        }
-        if (strlen($username) < 3 || strlen($username) > 100) {
-            Response::json(false, 'Username must be 3-100 characters.');
-        }
-        if (strlen($password) < 8) {
-            Response::json(false, 'Password must be at least 8 characters.');
-        }
-        if ($this->model->usernameExists($username)) {
+
+        if ($this->model->usernameExists($fields['username'])) {
             Response::json(false, 'Username already exists.');
         }
 
-        $id = $this->model->create($username, $fullName, $role, $password);
+        $fields['password'] = (string) ($p['password'] ?? '');
+        if (strlen($fields['password']) < 8) {
+            Response::json(false, 'Password must be at least 8 characters.');
+        }
+
+        $id = $this->model->create($fields);
         Response::json(true, 'User created.', ['id' => $id]);
     }
 
     private function update(): void
     {
-        $p = Response::readJsonInput();
+        $p  = Response::readJsonInput();
+        $id = (int) ($p['id'] ?? 0);
 
-        $id       = (int) ($p['id'] ?? 0);
-        $username = trim((string) ($p['username'] ?? ''));
-        $fullName = trim((string) ($p['full_name'] ?? ''));
-        $role     = trim((string) ($p['role'] ?? ''));
-        $password = (string) ($p['password'] ?? '');
+        if ($id <= 0) Response::json(false, 'Invalid user.');
 
-        if ($id <= 0 || $username === '' || $fullName === '' || $role === '') {
-            Response::json(false, 'Missing required fields.');
-        }
-        if (!in_array($role, ['Administrator', 'Staff / Officer'], true)) {
-            Response::json(false, 'Invalid role.');
-        }
-        if ($id === Auth::user()['id'] && $role !== 'Administrator') {
+        $fields = $this->extract($p);
+        $this->validate($fields, $id);
+
+        if ($id === Auth::user()['id'] && $fields['role'] !== 'Administrator') {
             Response::json(false, 'You cannot change your own role.');
         }
-        if ($this->model->usernameExists($username, $id)) {
+
+        if ($fields['username'] !== '' && $this->model->usernameExists($fields['username'], $id)) {
             Response::json(false, 'Username already exists.');
         }
-        if ($password !== '' && strlen($password) < 8) {
+
+        $fields['password'] = (string) ($p['password'] ?? '');
+        if ($fields['password'] !== '' && strlen($fields['password']) < 8) {
             Response::json(false, 'Password must be at least 8 characters.');
         }
 
-        $this->model->update($id, $username, $fullName, $role, $password);
+        $this->model->update($id, $fields);
         Response::json(true, 'User updated.');
     }
 
@@ -150,5 +161,52 @@ class UserController
 
         $this->model->delete($id);
         Response::json(true, 'User permanently deleted.');
+    }
+
+    /* ============================================================
+       Helpers
+       ============================================================ */
+
+    private function extract(array $p): array
+    {
+        $first  = trim((string) ($p['first_name'] ?? ''));
+        $middle = trim((string) ($p['middle_name'] ?? ''));
+        $last   = trim((string) ($p['last_name'] ?? ''));
+
+        $fullName = trim(implode(' ', array_filter([$first, $middle, $last])));
+
+        return [
+            'first_name'        => $first,
+            'middle_name'       => $middle,
+            'last_name'         => $last,
+            'full_name'         => $fullName,
+            'username'          => trim((string) ($p['username'] ?? '')),
+            'email'             => trim((string) ($p['email'] ?? '')),
+            'phone'             => trim((string) ($p['phone'] ?? '')),
+            'birthdate'         => trim((string) ($p['birthdate'] ?? '')) ?: null,
+            'sex'               => trim((string) ($p['sex'] ?? '')) ?: null,
+            'civil_status'      => trim((string) ($p['civil_status'] ?? '')) ?: null,
+            'employee_no'       => trim((string) ($p['employee_no'] ?? '')) ?: null,
+            'position'          => trim((string) ($p['position'] ?? '')) ?: null,
+            'rank'              => trim((string) ($p['rank'] ?? '')) ?: null,
+            'department'        => trim((string) ($p['department'] ?? '')) ?: null,
+            'date_hired'        => trim((string) ($p['date_hired'] ?? '')) ?: null,
+            'employment_status' => trim((string) ($p['employment_status'] ?? '')) ?: null,
+            'role'              => trim((string) ($p['role'] ?? '')),
+        ];
+    }
+
+    private function validate(array $f, ?int $id): void
+    {
+        if ($f['first_name'] === '' || $f['last_name'] === '') {
+            Response::json(false, 'First name and last name are required.');
+        }
+        if (!in_array($f['role'], ['Administrator', 'Staff / Officer'], true)) {
+            Response::json(false, 'Invalid role.');
+        }
+
+        if ($id === null && strlen($f['username']) > 0 && strlen($f['username']) > 100) {
+            Response::json(false, 'Username must be 3-100 characters.');
+        }
     }
 }

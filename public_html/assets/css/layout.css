@@ -8,9 +8,11 @@
    ============================================================ */
 
 .auth-wrapper {
-  min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(360px, 0.95fr) minmax(520px, 1.05fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
 }
 
 .auth-brand-panel {
@@ -27,6 +29,7 @@
   background:
     linear-gradient(160deg, rgba(18, 58, 109, 0.86) 0%, rgba(6, 20, 40, 0.96) 100%),
     url('../images/bg-login.jpg') center / cover no-repeat;
+  min-height: 100vh;
 }
 
 .auth-brand-panel::after {
@@ -43,14 +46,43 @@
   align-items: center;
   justify-content: center;
   padding: 2rem;
+  background: linear-gradient(to bottom right, var(--page-bg-1), var(--page-bg-2), var(--page-bg-3));
+  overflow-y: auto;
 }
 
-.auth-panel-inner { width: 100%; max-width: 420px; }
+.auth-panel-inner {
+  width: 100%;
+  max-width: 420px;
+}
 
+/* ---------- Tablet (below 900px) ---------- */
 @media (max-width: 900px) {
-  .auth-wrapper { display: block; }
-  .auth-brand-panel { min-height: auto; padding: 2.5rem 1.5rem 2rem; }
-  .auth-form-panel { padding: 1.5rem; }
+  .auth-wrapper {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .auth-brand-panel {
+    min-height: 40vh;
+    padding: 2.5rem 1.5rem 2rem;
+  }
+
+  .auth-form-panel {
+    min-height: 60vh;
+    padding: 2rem 1.5rem;
+  }
+}
+
+/* ---------- Mobile (below 640px) ---------- */
+@media (max-width: 640px) {
+  .auth-brand-panel {
+    min-height: 32vh;
+    padding: 2rem 1.25rem 1.5rem;
+  }
+
+  .auth-form-panel {
+    padding: 1.5rem 1rem;
+  }
 }
 
 /* ============================================================

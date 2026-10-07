@@ -1,9 +1,18 @@
 <?php
 declare(strict_types=1);
 
+use App\Controllers\DashboardController;
 use App\Controllers\LoginController;
 use App\Controllers\UserController;
 use App\Services\Auth;
+
+/* ----------------------------------------------------------
+   Start the session FIRST — before any file is required,
+   so nothing can accidentally send output before session_start().
+   ---------------------------------------------------------- */
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 /* ----------------------------------------------------------
    Bootstrap
@@ -11,9 +20,12 @@ use App\Services\Auth;
 require_once __DIR__ . '/../app/helpers/Response.php';
 require_once __DIR__ . '/../app/services/Auth.php';
 require_once __DIR__ . '/../app/models/User.php';
+require_once __DIR__ . '/../app/models/Dashboard.php';
 require_once __DIR__ . '/../app/controllers/LoginController.php';
 require_once __DIR__ . '/../app/controllers/UserController.php';
+require_once __DIR__ . '/../app/controllers/DashboardController.php';
 
+/* Auth::start() confirms the session is active. */
 Auth::start();
 
 /* ----------------------------------------------------------
@@ -37,9 +49,14 @@ try {
 $route  = $_GET['route']  ?? 'home';
 $action = $_GET['action'] ?? '';
 
-/* --- JSON API --- */
+/* --- JSON API (must come before view rendering) --- */
 if ($route === 'users') {
     (new UserController($db))->handle($action);
+    exit;
+}
+
+if ($route === 'dashboard') {
+    (new DashboardController($db))->handle($action);
     exit;
 }
 
@@ -69,6 +86,5 @@ if ($isAuthenticated) {
 } else {
     require __DIR__ . '/../views/pages/auth.php';
 }
-
 
 require __DIR__ . '/../views/components/footer.php';

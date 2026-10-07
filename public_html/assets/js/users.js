@@ -68,11 +68,8 @@
       confirmOkBtn.textContent = opts.confirmLabel || 'Confirm';
       confirmOkBtn.className = 'btn-primary';
 
-      if (opts.variant === 'danger') {
-        confirmOkBtn.className = 'btn-danger';
-      } else if (opts.variant === 'warning') {
-        confirmOkBtn.className = 'btn-warning';
-      }
+      if (opts.variant === 'danger')  confirmOkBtn.className = 'btn-danger';
+      if (opts.variant === 'warning') confirmOkBtn.className = 'btn-warning';
 
       confirmModal.classList.remove('is-hidden');
       document.body.classList.add('modal-open');
@@ -97,9 +94,7 @@
       if (e.target === confirmModal) closeConfirm(false);
       if (e.target.closest('[data-confirm-close]')) closeConfirm(false);
     });
-
     confirmOkBtn.addEventListener('click', function () { closeConfirm(true); });
-
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !confirmModal.classList.contains('is-hidden')) {
         closeConfirm(false);
@@ -113,7 +108,7 @@
 
   function render() {
     if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="data-table__empty">' +
+      tbody.innerHTML = '<tr><td colspan="7" class="data-table__empty">' +
         (scope === 'archived' ? 'No archived users.' : 'No users found.') +
         '</td></tr>';
       return;
@@ -126,6 +121,8 @@
       var dateShown   = scope === 'archived'
         ? (u.archived_at || '').slice(0, 10)
         : (u.created_at || '').slice(0, 10);
+
+      var name = u.full_name || ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || u.username;
 
       var actions;
       if (scope === 'archived') {
@@ -150,8 +147,9 @@
       }
 
       return '<tr data-id="' + u.id + '">' +
-        '<td><strong>' + esc(u.full_name) + '</strong></td>' +
-        '<td><code>' + esc(u.username) + '</code></td>' +
+        '<td><strong>' + esc(name) + '</strong><br><small class="meta-text">' + esc(u.username) + '</small></td>' +
+        '<td>' + esc(u.employee_no || '—') + '</td>' +
+        '<td>' + esc(u.position || u.rank || '—') + '</td>' +
         '<td><span class="role-badge role-badge--' + roleClass + '">' + esc(u.role) + '</span></td>' +
         '<td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td>' +
         '<td>' + esc(dateShown) + '</td>' +
@@ -173,15 +171,45 @@
     if (statusFilter.value) params.set('status', statusFilter.value);
     params.set('scope', scope);
 
-    tbody.innerHTML = '<tr><td colspan="6" class="data-table__empty">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="data-table__empty">Loading...</td></tr>';
 
     api('list&' + params.toString()).then(function (data) {
       users = data.users || [];
       loaded = true;
       render();
     }).catch(function (err) {
-      tbody.innerHTML = '<tr><td colspan="6" class="data-table__empty">' + esc(err.message) + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="data-table__empty">' + esc(err.message) + '</td></tr>';
     });
+  }
+
+  /* ============================================================
+     USERNAME AUTO-GENERATION
+     ============================================================ */
+
+  var usernameTouched = false;
+
+  function syncUsername() {
+    if (usernameTouched) return;
+
+    var first = document.getElementById('userFirstName').value.trim();
+    var last  = document.getElementById('userLastName').value.trim();
+
+    if (!first && !last) return;
+
+    var id = document.getElementById('userId').value;
+    var url = 'index.php?route=users&action=suggest-username' +
+              '&first_name=' + encodeURIComponent(first) +
+              '&last_name=' + encodeURIComponent(last) +
+              '&id=' + (id || '0');
+
+    fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success && data.username) {
+          document.getElementById('userUsername').value = data.username;
+        }
+      })
+      .catch(function () { /* silent */ });
   }
 
   /* ============================================================
@@ -193,22 +221,37 @@
     form.reset();
     formError.hidden = true;
     formError.textContent = '';
+    usernameTouched = false;
 
     document.getElementById('userModalTitle').textContent = user ? 'Edit User' : 'New User';
     document.getElementById('userId').value = user ? user.id : '';
 
     if (user) {
-      document.getElementById('userFullName').value = user.full_name;
-      document.getElementById('userUsername').value = user.username;
-      document.getElementById('userRole').value = user.role;
+      document.getElementById('userFirstName').value       = user.first_name || '';
+      document.getElementById('userMiddleName').value      = user.middle_name || '';
+      document.getElementById('userLastName').value        = user.last_name || '';
+      document.getElementById('userUsername').value        = user.username || '';
+      document.getElementById('userEmail').value           = user.email || '';
+      document.getElementById('userPhone').value           = user.phone || '';
+      document.getElementById('userBirthdate').value       = user.birthdate || '';
+      document.getElementById('userSex').value             = user.sex || '';
+      document.getElementById('userCivilStatus').value     = user.civil_status || '';
+      document.getElementById('userEmployeeNo').value      = user.employee_no || '';
+      document.getElementById('userPosition').value        = user.position || '';
+      document.getElementById('userRank').value            = user.rank || '';
+      document.getElementById('userDepartment').value      = user.department || '';
+      document.getElementById('userDateHired').value       = user.date_hired || '';
+      document.getElementById('userEmploymentStatus').value = user.employment_status || '';
+      document.getElementById('userRole').value            = user.role || 'Staff / Officer';
       document.getElementById('userPasswordHint').textContent = 'leave blank to keep current';
+      usernameTouched = true; /* don't auto-overwrite on edit */
     } else {
       document.getElementById('userPasswordHint').textContent = 'min 8 characters';
     }
 
     modal.classList.remove('is-hidden');
     document.body.classList.add('modal-open');
-    document.getElementById('userFullName').focus();
+    document.getElementById('userFirstName').focus();
   }
 
   function closeModal() {
@@ -217,9 +260,7 @@
     document.body.classList.remove('modal-open');
   }
 
-  if (createBtn) {
-    createBtn.addEventListener('click', function () { openModal(null); });
-  }
+  if (createBtn) createBtn.addEventListener('click', function () { openModal(null); });
 
   if (modal) {
     modal.addEventListener('click', function (e) {
@@ -231,6 +272,20 @@
     });
   }
 
+  /* Wire username auto-generation */
+  var firstInput = document.getElementById('userFirstName');
+  var lastInput  = document.getElementById('userLastName');
+  var usernameInput = document.getElementById('userUsername');
+
+  if (firstInput) firstInput.addEventListener('input', syncUsername);
+  if (lastInput)  lastInput.addEventListener('input', syncUsername);
+
+  if (usernameInput) {
+    usernameInput.addEventListener('input', function () {
+      usernameTouched = true;
+    });
+  }
+
   /* ============================================================
      SUBMIT FORM
      ============================================================ */
@@ -239,12 +294,26 @@
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var id = document.getElementById('userId').value;
+
       var payload = {
         id: id ? Number(id) : 0,
-        full_name: document.getElementById('userFullName').value.trim(),
-        username: document.getElementById('userUsername').value.trim(),
-        role: document.getElementById('userRole').value,
-        password: document.getElementById('userPassword').value
+        first_name:        document.getElementById('userFirstName').value.trim(),
+        middle_name:       document.getElementById('userMiddleName').value.trim(),
+        last_name:         document.getElementById('userLastName').value.trim(),
+        username:          document.getElementById('userUsername').value.trim(),
+        email:             document.getElementById('userEmail').value.trim(),
+        phone:             document.getElementById('userPhone').value.trim(),
+        birthdate:         document.getElementById('userBirthdate').value,
+        sex:               document.getElementById('userSex').value,
+        civil_status:      document.getElementById('userCivilStatus').value,
+        employee_no:       document.getElementById('userEmployeeNo').value.trim(),
+        position:          document.getElementById('userPosition').value.trim(),
+        rank:              document.getElementById('userRank').value.trim(),
+        department:        document.getElementById('userDepartment').value.trim(),
+        date_hired:        document.getElementById('userDateHired').value,
+        employment_status: document.getElementById('userEmploymentStatus').value,
+        role:              document.getElementById('userRole').value,
+        password:          document.getElementById('userPassword').value
       };
 
       saveBtn.disabled = true;
@@ -281,78 +350,55 @@
 
       var action = btn.dataset.action;
 
-      if (action === 'edit') {
-        openModal(user);
-        return;
-      }
+      if (action === 'edit') { openModal(user); return; }
 
       if (action === 'toggle') {
-        var toggleOk = await confirmDialog({
+        var ok1 = await confirmDialog({
           title: 'Change Status',
-          message: (user.is_active ? 'Deactivate' : 'Activate') + ' "' + user.full_name + '"?',
+          message: (user.is_active ? 'Deactivate' : 'Activate') + ' "' + (user.full_name || user.username) + '"?',
           confirmLabel: user.is_active ? 'Deactivate' : 'Activate'
         });
-        if (!toggleOk) return;
-
-        api('toggle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: id })
-        }).then(function () { load(true); })
-          .catch(function (err) { alert(err.message); });
+        if (!ok1) return;
+        api('toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) })
+          .then(function () { load(true); }).catch(function (err) { alert(err.message); });
         return;
       }
 
       if (action === 'archive') {
-        var archiveOk = await confirmDialog({
+        var ok2 = await confirmDialog({
           title: 'Archive User',
-          message: 'Archive "' + user.full_name + '"? They will no longer appear in the active list.',
+          message: 'Archive "' + (user.full_name || user.username) + '"?',
           confirmLabel: 'Archive',
           variant: 'warning'
         });
-        if (!archiveOk) return;
-
-        api('archive', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: id })
-        }).then(function () { load(true); })
-          .catch(function (err) { alert(err.message); });
+        if (!ok2) return;
+        api('archive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) })
+          .then(function () { load(true); }).catch(function (err) { alert(err.message); });
         return;
       }
 
       if (action === 'restore') {
-        var restoreOk = await confirmDialog({
+        var ok3 = await confirmDialog({
           title: 'Restore User',
-          message: 'Restore "' + user.full_name + '" to the active list?',
+          message: 'Restore "' + (user.full_name || user.username) + '" to the active list?',
           confirmLabel: 'Restore'
         });
-        if (!restoreOk) return;
-
-        api('restore', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: id })
-        }).then(function () { load(true); })
-          .catch(function (err) { alert(err.message); });
+        if (!ok3) return;
+        api('restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) })
+          .then(function () { load(true); }).catch(function (err) { alert(err.message); });
         return;
       }
 
       if (action === 'delete') {
-        var deleteOk = await confirmDialog({
+        var ok4 = await confirmDialog({
           title: 'Delete Permanently',
-          message: 'Permanently delete "' + user.full_name + '"? This cannot be undone.',
+          message: 'Permanently delete "' + (user.full_name || user.username) + '"? This cannot be undone.',
           confirmLabel: 'Delete Forever',
           variant: 'danger'
         });
-        if (!deleteOk) return;
-
-        api('delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: id })
-        }).then(function () { load(true); })
-          .catch(function (err) { alert(err.message); });
+        if (!ok4) return;
+        api('delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) })
+          .then(function () { load(true); }).catch(function (err) { alert(err.message); });
       }
     });
   }
@@ -386,7 +432,7 @@
       timer = setTimeout(function () { load(true); }, 250);
     });
   }
-  if (roleFilter) roleFilter.addEventListener('change', function () { load(true); });
+  if (roleFilter)   roleFilter.addEventListener('change', function () { load(true); });
   if (statusFilter) statusFilter.addEventListener('change', function () { load(true); });
 
   /* ============================================================
@@ -394,9 +440,7 @@
      ============================================================ */
 
   document.addEventListener('section:changed', function (e) {
-    if (e.detail && e.detail.section === 'users') {
-      load();
-    }
+    if (e.detail && e.detail.section === 'users') load();
   });
 
   if (section.classList.contains('is-visible')) load();

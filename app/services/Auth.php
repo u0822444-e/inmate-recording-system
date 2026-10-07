@@ -46,6 +46,10 @@ class Auth
 
     public static function login(array $user): void
     {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
         session_regenerate_id(true);
 
         $_SESSION['authenticated'] = true;
@@ -57,6 +61,10 @@ class Auth
 
     public static function logout(): void
     {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
         $_SESSION = [];
 
         if (ini_get('session.use_cookies')) {
