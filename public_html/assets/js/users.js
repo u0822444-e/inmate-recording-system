@@ -4,17 +4,33 @@
   var section = document.getElementById('dashboard-users');
   if (!section) return;
 
-  var modal      = document.getElementById('userModal');
-  var createBtn  = document.getElementById('userCreateBtn');
-  var tbody      = document.getElementById('userTableBody');
-  var form       = document.getElementById('userForm');
-  var formError  = document.getElementById('userFormError');
-  var saveBtn    = document.getElementById('userSaveBtn');
-  var search     = document.getElementById('userSearch');
-  var roleFilter = document.getElementById('userRoleFilter');
-  var statusFilter = document.getElementById('userStatusFilter');
+  /* ---------- User modal refs ---------- */
+  var modal          = document.getElementById('userModal');
+  var createBtn      = document.getElementById('userCreateBtn');
+  var archiveBtn     = document.getElementById('userArchiveToggleBtn');
+  var archiveLabel   = document.getElementById('userArchiveToggleLabel');
+  var dateColHeader  = document.getElementById('userDateColHeader');
+  var tbody          = document.getElementById('userTableBody');
+  var form           = document.getElementById('userForm');
+  var formError      = document.getElementById('userFormError');
+  var saveBtn        = document.getElementById('userSaveBtn');
+  var search         = document.getElementById('userSearch');
+  var roleFilter     = document.getElementById('userRoleFilter');
+  var statusFilter   = document.getElementById('userStatusFilter');
+
+  /* ---------- Confirm modal refs ---------- */
+  var confirmModal   = document.getElementById('confirmModal');
+  var confirmTitle   = document.getElementById('confirmModalTitle');
+  var confirmMessage = document.getElementById('confirmModalMessage');
+  var confirmOkBtn   = document.getElementById('confirmModalOk');
 
   var users = [];
+  var loaded = false;
+  var scope = 'active';
+
+  /* ============================================================
+     HELPERS
+     ============================================================ */
 
   function esc(v) {
     var d = document.createElement('div');
@@ -35,37 +51,127 @@
     });
   }
 
+  /* ============================================================
+     CONFIRM MODAL
+     ============================================================ */
+
+  var confirmResolve = null;
+
+  function confirmDialog(opts) {
+    return new Promise(function (resolve) {
+      if (!confirmModal) { resolve(window.confirm(opts.message)); return; }
+
+      confirmResolve = resolve;
+      confirmTitle.textContent = opts.title || 'Confirm';
+      confirmMessage.textContent = opts.message || 'Are you sure?';
+
+      confirmOkBtn.textContent = opts.confirmLabel || 'Confirm';
+      confirmOkBtn.className = 'btn-primary';
+
+      if (opts.variant === 'danger') {
+        confirmOkBtn.className = 'btn-danger';
+      } else if (opts.variant === 'warning') {
+        confirmOkBtn.className = 'btn-warning';
+      }
+
+      confirmModal.classList.remove('is-hidden');
+      document.body.classList.add('modal-open');
+      setTimeout(function () { confirmOkBtn.focus(); }, 50);
+    });
+  }
+
+  function closeConfirm(result) {
+    if (confirmModal) {
+      confirmModal.classList.add('is-hidden');
+      document.body.classList.remove('modal-open');
+    }
+    if (confirmResolve) {
+      var r = confirmResolve;
+      confirmResolve = null;
+      r(result);
+    }
+  }
+
+  if (confirmModal) {
+    confirmModal.addEventListener('click', function (e) {
+      if (e.target === confirmModal) closeConfirm(false);
+      if (e.target.closest('[data-confirm-close]')) closeConfirm(false);
+    });
+
+    confirmOkBtn.addEventListener('click', function () { closeConfirm(true); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !confirmModal.classList.contains('is-hidden')) {
+        closeConfirm(false);
+      }
+    });
+  }
+
+  /* ============================================================
+     RENDER
+     ============================================================ */
+
   function render() {
     if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="data-table__empty">No users found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="data-table__empty">' +
+        (scope === 'archived' ? 'No archived users.' : 'No users found.') +
+        '</td></tr>';
       return;
     }
+
     tbody.innerHTML = users.map(function (u) {
-      var roleClass = u.role === 'Administrator' ? 'admin' : 'staff';
+      var roleClass   = u.role === 'Administrator' ? 'admin' : 'staff';
       var statusClass = u.is_active ? 'status-pill--on' : 'status-pill--off';
-      var statusText = u.is_active ? 'Active' : 'Inactive';
-      var created = (u.created_at || '').slice(0, 10);
+      var statusText  = u.is_active ? 'Active' : 'Inactive';
+      var dateShown   = scope === 'archived'
+        ? (u.archived_at || '').slice(0, 10)
+        : (u.created_at || '').slice(0, 10);
+
+      var actions;
+      if (scope === 'archived') {
+        actions =
+          '<button type="button" class="icon-btn" data-action="restore" title="Restore">' +
+            '<i class="bi bi-arrow-counterclockwise"></i>' +
+          '</button>' +
+          '<button type="button" class="icon-btn icon-btn--danger" data-action="delete" title="Permanently delete">' +
+            '<i class="bi bi-trash"></i>' +
+          '</button>';
+      } else {
+        actions =
+          '<button type="button" class="icon-btn" data-action="edit" title="Edit">' +
+            '<i class="bi bi-pencil"></i>' +
+          '</button>' +
+          '<button type="button" class="icon-btn" data-action="toggle" title="Toggle status">' +
+            '<i class="bi bi-toggle-on"></i>' +
+          '</button>' +
+          '<button type="button" class="icon-btn" data-action="archive" title="Archive">' +
+            '<i class="bi bi-archive"></i>' +
+          '</button>';
+      }
 
       return '<tr data-id="' + u.id + '">' +
         '<td><strong>' + esc(u.full_name) + '</strong></td>' +
         '<td><code>' + esc(u.username) + '</code></td>' +
         '<td><span class="role-badge role-badge--' + roleClass + '">' + esc(u.role) + '</span></td>' +
         '<td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td>' +
-        '<td>' + esc(created) + '</td>' +
-        '<td class="ta-right"><div class="row-actions">' +
-          '<button type="button" class="icon-btn" data-action="edit" title="Edit"><i class="bi bi-pencil"></i></button>' +
-          '<button type="button" class="icon-btn" data-action="toggle" title="Toggle"><i class="bi bi-toggle-on"></i></button>' +
-          '<button type="button" class="icon-btn icon-btn--danger" data-action="delete" title="Delete"><i class="bi bi-trash"></i></button>' +
-        '</div></td></tr>';
+        '<td>' + esc(dateShown) + '</td>' +
+        '<td class="ta-right"><div class="row-actions">' + actions + '</div></td>' +
+      '</tr>';
     }).join('');
   }
 
+  /* ============================================================
+     LOAD
+     ============================================================ */
+
   function load(force) {
     if (loaded && !force) return;
+
     var params = new URLSearchParams();
     if (search.value.trim()) params.set('q', search.value.trim());
     if (roleFilter.value) params.set('role', roleFilter.value);
     if (statusFilter.value) params.set('status', statusFilter.value);
+    params.set('scope', scope);
 
     tbody.innerHTML = '<tr><td colspan="6" class="data-table__empty">Loading...</td></tr>';
 
@@ -77,7 +183,10 @@
       tbody.innerHTML = '<tr><td colspan="6" class="data-table__empty">' + esc(err.message) + '</td></tr>';
     });
   }
-  var loaded = false;
+
+  /* ============================================================
+     USER MODAL
+     ============================================================ */
 
   function openModal(user) {
     if (!modal) return;
@@ -98,12 +207,14 @@
     }
 
     modal.classList.remove('is-hidden');
+    document.body.classList.add('modal-open');
     document.getElementById('userFullName').focus();
   }
 
   function closeModal() {
     if (!modal) return;
     modal.classList.add('is-hidden');
+    document.body.classList.remove('modal-open');
   }
 
   if (createBtn) {
@@ -113,14 +224,16 @@
   if (modal) {
     modal.addEventListener('click', function (e) {
       if (e.target === modal) closeModal();
-    });
-    modal.querySelectorAll('[data-modal-close]').forEach(function (b) {
-      b.addEventListener('click', closeModal);
+      if (e.target.closest('[data-modal-close]')) closeModal();
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Escape' && !modal.classList.contains('is-hidden')) closeModal();
     });
   }
+
+  /* ============================================================
+     SUBMIT FORM
+     ============================================================ */
 
   if (form) {
     form.addEventListener('submit', function (e) {
@@ -154,36 +267,136 @@
     });
   }
 
+  /* ============================================================
+     TABLE ACTIONS
+     ============================================================ */
+
   if (tbody) {
-    tbody.addEventListener('click', function (e) {
+    tbody.addEventListener('click', async function (e) {
       var btn = e.target.closest('button[data-action]');
       if (!btn) return;
       var id = Number(btn.closest('tr').dataset.id);
       var user = users.find(function (u) { return u.id === id; });
       if (!user) return;
 
-      if (btn.dataset.action === 'edit') openModal(user);
-      if (btn.dataset.action === 'toggle') {
-        api('toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) }).then(function () { load(true); });
+      var action = btn.dataset.action;
+
+      if (action === 'edit') {
+        openModal(user);
+        return;
       }
-      if (btn.dataset.action === 'delete') {
-        if (!confirm('Delete ' + user.full_name + '?')) return;
-        api('delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) }).then(function () { load(true); });
+
+      if (action === 'toggle') {
+        var toggleOk = await confirmDialog({
+          title: 'Change Status',
+          message: (user.is_active ? 'Deactivate' : 'Activate') + ' "' + user.full_name + '"?',
+          confirmLabel: user.is_active ? 'Deactivate' : 'Activate'
+        });
+        if (!toggleOk) return;
+
+        api('toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: id })
+        }).then(function () { load(true); })
+          .catch(function (err) { alert(err.message); });
+        return;
+      }
+
+      if (action === 'archive') {
+        var archiveOk = await confirmDialog({
+          title: 'Archive User',
+          message: 'Archive "' + user.full_name + '"? They will no longer appear in the active list.',
+          confirmLabel: 'Archive',
+          variant: 'warning'
+        });
+        if (!archiveOk) return;
+
+        api('archive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: id })
+        }).then(function () { load(true); })
+          .catch(function (err) { alert(err.message); });
+        return;
+      }
+
+      if (action === 'restore') {
+        var restoreOk = await confirmDialog({
+          title: 'Restore User',
+          message: 'Restore "' + user.full_name + '" to the active list?',
+          confirmLabel: 'Restore'
+        });
+        if (!restoreOk) return;
+
+        api('restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: id })
+        }).then(function () { load(true); })
+          .catch(function (err) { alert(err.message); });
+        return;
+      }
+
+      if (action === 'delete') {
+        var deleteOk = await confirmDialog({
+          title: 'Delete Permanently',
+          message: 'Permanently delete "' + user.full_name + '"? This cannot be undone.',
+          confirmLabel: 'Delete Forever',
+          variant: 'danger'
+        });
+        if (!deleteOk) return;
+
+        api('delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: id })
+        }).then(function () { load(true); })
+          .catch(function (err) { alert(err.message); });
       }
     });
   }
 
+  /* ============================================================
+     ARCHIVE TOGGLE
+     ============================================================ */
+
+  if (archiveBtn) {
+    archiveBtn.addEventListener('click', function () {
+      scope = scope === 'archived' ? 'active' : 'archived';
+      loaded = false;
+
+      archiveLabel.textContent = scope === 'archived' ? 'View Active' : 'View Archived';
+      dateColHeader.textContent = scope === 'archived' ? 'Archived' : 'Created';
+
+      if (createBtn) createBtn.hidden = scope === 'archived';
+
+      load(true);
+    });
+  }
+
+  /* ============================================================
+     FILTERS
+     ============================================================ */
+
   var timer;
-  if (search) search.addEventListener('input', function () {
-    clearTimeout(timer);
-    timer = setTimeout(function () { load(true); }, 250);
-  });
+  if (search) {
+    search.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { load(true); }, 250);
+    });
+  }
   if (roleFilter) roleFilter.addEventListener('change', function () { load(true); });
   if (statusFilter) statusFilter.addEventListener('change', function () { load(true); });
 
-  /* Load when Users tab is clicked */
-  document.addEventListener('click', function (e) {
-    if (e.target.closest('[data-section="users"]')) setTimeout(load, 0);
+  /* ============================================================
+     SECTION EVENT
+     ============================================================ */
+
+  document.addEventListener('section:changed', function (e) {
+    if (e.detail && e.detail.section === 'users') {
+      load();
+    }
   });
 
   if (section.classList.contains('is-visible')) load();

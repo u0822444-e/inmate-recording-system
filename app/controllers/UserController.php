@@ -23,11 +23,13 @@ class UserController
 
         $method = $_SERVER['REQUEST_METHOD'];
 
-        if ($method === 'GET' && $action === 'list')         $this->list();
-        elseif ($method === 'POST' && $action === 'create')  $this->create();
-        elseif ($method === 'POST' && $action === 'update')  $this->update();
-        elseif ($method === 'POST' && $action === 'toggle')  $this->toggle();
-        elseif ($method === 'POST' && $action === 'delete')  $this->delete();
+        if ($method === 'GET' && $action === 'list')          $this->list();
+        elseif ($method === 'POST' && $action === 'create')   $this->create();
+        elseif ($method === 'POST' && $action === 'update')   $this->update();
+        elseif ($method === 'POST' && $action === 'toggle')   $this->toggle();
+        elseif ($method === 'POST' && $action === 'archive')  $this->archive();
+        elseif ($method === 'POST' && $action === 'restore')  $this->restore();
+        elseif ($method === 'POST' && $action === 'delete')   $this->delete();
         else Response::json(false, 'Unsupported request.');
     }
 
@@ -36,8 +38,12 @@ class UserController
         $q      = trim((string) ($_GET['q'] ?? ''));
         $role   = trim((string) ($_GET['role'] ?? ''));
         $status = trim((string) ($_GET['status'] ?? ''));
+        $scope  = ($_GET['scope'] ?? 'active') === 'archived' ? 'archived' : 'active';
 
-        Response::json(true, 'OK', ['users' => $this->model->all($q, $role, $status)]);
+        Response::json(true, 'OK', [
+            'users' => $this->model->all($q, $role, $status, $scope),
+            'scope' => $scope,
+        ]);
     }
 
     private function create(): void
@@ -111,6 +117,29 @@ class UserController
         Response::json(true, 'Status updated.');
     }
 
+    private function archive(): void
+    {
+        $p  = Response::readJsonInput();
+        $id = (int) ($p['id'] ?? 0);
+
+        if ($id <= 0) Response::json(false, 'Invalid user.');
+        if ($id === Auth::user()['id']) Response::json(false, 'You cannot archive yourself.');
+
+        $this->model->archive($id);
+        Response::json(true, 'User archived.');
+    }
+
+    private function restore(): void
+    {
+        $p  = Response::readJsonInput();
+        $id = (int) ($p['id'] ?? 0);
+
+        if ($id <= 0) Response::json(false, 'Invalid user.');
+
+        $this->model->restore($id);
+        Response::json(true, 'User restored.');
+    }
+
     private function delete(): void
     {
         $p  = Response::readJsonInput();
@@ -120,6 +149,6 @@ class UserController
         if ($id === Auth::user()['id']) Response::json(false, 'You cannot delete yourself.');
 
         $this->model->delete($id);
-        Response::json(true, 'User deleted.');
+        Response::json(true, 'User permanently deleted.');
     }
 }

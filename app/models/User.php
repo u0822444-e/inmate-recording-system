@@ -15,6 +15,7 @@ class User
             'SELECT id, username, password, role, full_name
              FROM users
              WHERE username = ? AND role = ? AND is_active = 1
+               AND archived_at IS NULL
              LIMIT 1'
         );
         $stmt->bind_param('ss', $username, $role);
@@ -24,12 +25,18 @@ class User
         return $user ?: null;
     }
 
-    public function all(string $q = '', string $role = '', string $status = ''): array
+    public function all(string $q = '', string $role = '', string $status = '', string $scope = 'active'): array
     {
-        $sql = 'SELECT id, username, full_name, role, is_active, created_at
+        $sql = 'SELECT id, username, full_name, role, is_active, created_at, archived_at
                 FROM users WHERE 1 = 1';
         $params = [];
         $types = '';
+
+        if ($scope === 'archived') {
+            $sql .= ' AND archived_at IS NOT NULL';
+        } else {
+            $sql .= ' AND archived_at IS NULL';
+        }
 
         if ($q !== '') {
             $sql .= ' AND (username LIKE ? OR full_name LIKE ?)';
@@ -72,8 +79,8 @@ class User
     {
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $this->db->prepare(
-            'INSERT INTO users (username, full_name, role, password, is_active)
-             VALUES (?, ?, ?, ?, 1)'
+            'INSERT INTO users (username, full_name, role, password, is_active, archived_at)
+             VALUES (?, ?, ?, ?, 1, NULL)'
         );
         $stmt->bind_param('ssss', $username, $fullName, $role, $hash);
         $stmt->execute();
@@ -108,9 +115,29 @@ class User
         $stmt->close();
     }
 
+    public function archive(int $id): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE users SET archived_at = CURRENT_TIMESTAMP, is_active = 0 WHERE id = ?'
+        );
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    public function restore(int $id): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE users SET archived_at = NULL, is_active = 1 WHERE id = ?'
+        );
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $stmt->close();
+    }
+
     public function delete(int $id): void
     {
-        $stmt = $this->db->prepare('DELETE FROM users WHERE id = ?');
+        $stmt = $this->db->prepare('DELETE FROM users WHERE id = ? AND archived_at IS NOT NULL');
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();

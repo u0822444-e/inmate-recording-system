@@ -1,132 +1,170 @@
 /* ============================================================
    Ipil District Jail — Inmate Recording System
-   base.css — reset, tokens, typography
+   base.css — design tokens, reset, typography
    ============================================================ */
 
-/* ---------- Design tokens ---------- */
+/* ============================================================
+   1. DESIGN TOKENS — semantic, themeable
+   ============================================================ */
 :root {
-  /* Navy palette */
-  --navy-950: #061428;
-  --navy-900: #092446;
-  --navy-800: #123a6d;
-  --navy-700: #1c4e8b;
-  --navy-600: #2669b4;
-  --navy-500: #3a7bc8;
-  --navy-200: #d6e2f0;
-  --navy-100: #edf3f9;
-  --navy-50:  #f6f8fc;
+  /* --- Brand (navy) --- */
+  --primary:       #123a6d;
+  --primary-hover: #092446;
+  --primary-light: #edf3f9;
 
-  /* Surfaces */
-  --surface:       #f6f8fc;
-  --surface-card:  #ffffff;
-  --surface-hover: #edf3f9;
-
-  /* Text */
+  /* --- Text --- */
   --text:       #12233d;
   --text-muted: #60708a;
+  --text-soft:  rgba(18, 35, 61, 0.5);
 
-  /* Lines */
+  /* --- Lines --- */
   --border: #d6e2f0;
 
-  /* Status */
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger:  #c8102e;
+  /* --- Page gradient --- */
+  --page-bg-1: #edf3f9;
+  --page-bg-2: #e3ecf5;
+  --page-bg-3: #d6e2f0;
 
-  /* Semantic aliases (used by views) */
-  --accent:        var(--navy-800);
-  --accent-hover:  var(--navy-700);
+  /* --- Sidebar gradient --- */
+  --sidebar-from: #092446;
+  --sidebar-to:   #061428;
 
-  /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 8px;
+  /* --- Status --- */
+  --success:      #10b981;
+  --success-bg:   #ecfdf5;
+  --success-text: #047857;
+
+  --warning:      #f59e0b;
+  --warning-bg:   #fffbeb;
+  --warning-text: #b45309;
+
+  --danger:       #c8102e;
+  --danger-bg:    #fef2f2;
+  --danger-text:  #991b1b;
+
+  --neutral:      #64748b;
+  --neutral-bg:   #f1f5f9;
+  --neutral-text: #475569;
+
+  /* --- Radius --- */
+  --radius-sm: 8px;
+  --radius-md: 10px;
   --radius-lg: 12px;
+  --radius-xl: 14px;
 
-  /* Shadow */
+  /* --- Shadow --- */
   --shadow-sm: 0 1px 2px rgba(6, 20, 40, 0.05);
   --shadow-md: 0 4px 12px rgba(6, 20, 40, 0.08);
-  --shadow-lg: 0 20px 40px rgba(6, 20, 40, 0.25);
-
-  /* Bootstrap 5.3 bridge */
-  --bs-primary: #123a6d;
-  --bs-primary-rgb: 18, 58, 109;
-  --bs-link-color: #123a6d;
-  --bs-link-hover-color: #1c4e8b;
+  --shadow-lg: 0 20px 40px -12px rgba(6, 20, 40, 0.25);
 
   color-scheme: light;
 }
 
-/* ---------- Reset ---------- */
+/* ============================================================
+   2. RESET
+   ============================================================ */
 *,
 *::before,
-*::after {
-  box-sizing: border-box;
-}
+*::after { box-sizing: border-box; }
 
-html {
-  min-width: 320px;
-  -webkit-text-size-adjust: 100%;
-}
+html { min-width: 320px; -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text);
-  background: var(--surface);
+  background: linear-gradient(to bottom right, var(--page-bg-1), var(--page-bg-2), var(--page-bg-3));
+  background-attachment: fixed;
+  min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
   font-weight: 700;
-  color: var(--navy-950);
+  color: var(--text);
+  letter-spacing: -0.01em;
 }
 
 p { margin: 0; }
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
+a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
-
-button {
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-
-input, select, textarea {
-  font-family: inherit;
-  font-size: inherit;
-}
-
+button { font-family: inherit; font-size: inherit; color: inherit; cursor: pointer; }
+input, select, textarea { font-family: inherit; font-size: inherit; }
 img { max-width: 100%; display: block; }
 
-/* ---------- Utility: hidden state ---------- */
+/* ============================================================
+   3. HIDDEN STATE
+   ============================================================ */
 .is-hidden { display: none !important; }
-[hidden]   { display: none !important; }   /* still needed for form fields */
+[hidden]   { display: none !important; }
 
-/* ---------- Focus ---------- */
-:focus-visible {
-  outline: 2px solid var(--navy-600);
+/* ============================================================
+   4. FOCUS
+   ============================================================ */
+input:focus, select:focus, textarea:focus, button:focus { outline: none; }
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
-/* ---------- Scrollbars ---------- */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--navy-200) transparent;
-}
-
+/* ============================================================
+   5. SCROLLBARS
+   ============================================================ */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb {
-  background: var(--navy-200);
-  border-radius: 999px;
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+/* ============================================================
+   6. TYPOGRAPHY UTILITIES
+   ============================================================ */
+.page-title  { font-size: clamp(1rem, 1.5vw, 1.25rem); font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+.card-title  { font-size: 0.875rem; font-weight: 700; color: var(--text); }
+.body-text   { font-size: 0.875rem; color: var(--text); }
+.meta-text   { font-size: 0.75rem; color: var(--text-soft); }
+.tiny-label  { font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-soft); font-weight: 600; }
+.big-number  { font-size: clamp(1.75rem, 3vw, 2.25rem); font-weight: 700; color: var(--primary); line-height: 1; }
+
+/* ============================================================
+   7. AUTOFILL
+   ============================================================ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  -webkit-text-fill-color: var(--text) !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
-*::-webkit-scrollbar-thumb:hover { background: var(--navy-700); }
+
+/* ============================================================
+   8. UTILITY CLASSES (Bootstrap-compatible)
+   ============================================================ */
+
+.mb-0  { margin-bottom: 0 !important; }
+.mb-1  { margin-bottom: 0.25rem !important; }
+.mb-2  { margin-bottom: 0.5rem !important; }
+.mb-3  { margin-bottom: 1rem !important; }
+.mb-4  { margin-bottom: 1.5rem !important; }
+
+.mt-0  { margin-top: 0 !important; }
+.mt-1  { margin-top: 0.25rem !important; }
+.mt-2  { margin-top: 0.5rem !important; }
+.mt-3  { margin-top: 1rem !important; }
+.mt-4  { margin-top: 1.5rem !important; }
+
+.me-1  { margin-right: 0.25rem !important; }
+.me-2  { margin-right: 0.5rem !important; }
+
+.ms-1  { margin-left: 0.25rem !important; }
+.ms-2  { margin-left: 0.5rem !important; }
+
+.text-center { text-align: center !important; }
+.text-end    { text-align: right !important; }

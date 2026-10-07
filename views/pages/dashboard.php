@@ -5,11 +5,19 @@ use App\Services\Auth;
 $isAdmin = Auth::isAdmin();
 $user    = Auth::user();
 $today   = date('M j, Y');
+
+/* ----------------------------------------------------------
+   Read current section from the query string so PHP renders
+   the correct section on first paint (no flash on refresh).
+   ---------------------------------------------------------- */
+$allowedSections = ['overview', 'inmates', 'visitors', 'incidents', 'headcount', 'users'];
+$requested       = $_GET['section'] ?? 'overview';
+$currentSection  = in_array($requested, $allowedSections, true) ? $requested : 'overview';
 ?>
 <section id="dashboardScreen"
          class="dashboard-shell"
          data-role="<?= $isAdmin ? 'admin' : 'staff' ?>"
-         data-initial-section="overview">
+         data-initial-section="<?= htmlspecialchars($currentSection, ENT_QUOTES) ?>">
 
     <?php require __DIR__ . '/../components/sidebar.php'; ?>
 
@@ -17,13 +25,17 @@ $today   = date('M j, Y');
 
         <?php require __DIR__ . '/../components/mobile-header.php'; ?>
 
-        <section id="dashboard-overview" class="dashboard-section is-visible">
+        <!-- ============================================================
+             OVERVIEW
+             ============================================================ -->
+        <section id="dashboard-overview"
+                 class="dashboard-section <?= $currentSection === 'overview' ? 'is-visible' : '' ?>">
             <header class="section-header">
                 <div>
                     <h1>Overview</h1>
                     <p>Welcome back, <strong><?= htmlspecialchars($user['full_name'] ?: $user['username'], ENT_QUOTES) ?></strong></p>
                 </div>
-                <span class="section-header__meta"><?= htmlspecialchars($today, ENT_QUOTES) ?></span>
+                <span class="meta-text"><?= htmlspecialchars($today, ENT_QUOTES) ?></span>
             </header>
 
             <div class="kpi-grid">
@@ -36,24 +48,48 @@ $today   = date('M j, Y');
             </div>
         </section>
 
-        <section id="dashboard-inmates" class="dashboard-section">
-            <header class="section-header"><div><h1>Inmate Records</h1><p>Search and review PDL records.</p></div></header>
+        <!-- ============================================================
+             INMATES
+             ============================================================ -->
+        <section id="dashboard-inmates"
+                 class="dashboard-section <?= $currentSection === 'inmates' ? 'is-visible' : '' ?>">
+            <header class="section-header">
+                <div><h1>Inmate Records</h1><p>Search and review PDL records.</p></div>
+            </header>
         </section>
 
-        <section id="dashboard-visitors" class="dashboard-section">
-            <header class="section-header"><div><h1>Visitors</h1><p>Visitor log and monitoring.</p></div></header>
+        <!-- ============================================================
+             VISITORS
+             ============================================================ -->
+        <section id="dashboard-visitors"
+                 class="dashboard-section <?= $currentSection === 'visitors' ? 'is-visible' : '' ?>">
+            <header class="section-header">
+                <div><h1>Visitors</h1><p>Visitor log and monitoring.</p></div>
+            </header>
         </section>
 
-        <section id="dashboard-incidents" class="dashboard-section">
-            <header class="section-header"><div><h1>Incidents</h1><p>Facility incident reports.</p></div></header>
+        <!-- ============================================================
+             INCIDENTS
+             ============================================================ -->
+        <section id="dashboard-incidents"
+                 class="dashboard-section <?= $currentSection === 'incidents' ? 'is-visible' : '' ?>">
+            <header class="section-header">
+                <div><h1>Incidents</h1><p>Facility incident reports.</p></div>
+            </header>
         </section>
 
-        <section id="dashboard-headcount" class="dashboard-section">
-            <header class="section-header"><div><h1>Headcount</h1><p>Daily population verification.</p></div></header>
+        <!-- ============================================================
+             HEADCOUNT
+             ============================================================ -->
+        <section id="dashboard-headcount"
+                 class="dashboard-section <?= $currentSection === 'headcount' ? 'is-visible' : '' ?>">
+            <header class="section-header">
+                <div><h1>Headcount</h1><p>Daily population verification.</p></div>
+            </header>
         </section>
 
         <?php if ($isAdmin): ?>
-            <?php require __DIR__ . '/../pages/users-section.php'; ?>
+            <?php require __DIR__ . '/users-section.php'; ?>
         <?php endif; ?>
 
     </main>
@@ -61,4 +97,6 @@ $today   = date('M j, Y');
 
 <?php if ($isAdmin): ?>
     <?php require __DIR__ . '/../components/modal-user.php'; ?>
+    <?php require __DIR__ . '/../components/modal-confirm.php'; ?>
 <?php endif; ?>
+<?php require __DIR__ . '/../components/modal-logout.php'; ?>
