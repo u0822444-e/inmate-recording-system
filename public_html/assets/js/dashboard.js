@@ -9,9 +9,72 @@
   var navItems = shell.querySelectorAll('.sidebar-nav__item[data-section]');
   var triggers = shell.querySelectorAll('[data-section]');
   var sections = shell.querySelectorAll('.dashboard-section');
+  var groups   = shell.querySelectorAll('.sidebar-nav__group[data-group]');
 
   /* ============================================================
-     HELPERS
+     GROUP HELPERS
+     ============================================================ */
+
+  /**
+   * Returns the group name that owns the given section, or null.
+   */
+  function groupOwning(section) {
+    var owner = null;
+    groups.forEach(function (btn) {
+      var group = btn.dataset.group;
+      var children = shell.querySelector(
+        '.sidebar-nav__children[data-group-children="' + group + '"]'
+      );
+      if (!children) return;
+      if (children.querySelector('.sidebar-nav__item[data-section="' + section + '"]')) {
+        owner = group;
+      }
+    });
+    return owner;
+  }
+
+  function closeAllGroups(exceptGroup) {
+    groups.forEach(function (btn) {
+      if (btn.dataset.group === exceptGroup) return;
+      btn.classList.remove('is-open');
+      btn.setAttribute('aria-expanded', 'false');
+
+      var children = shell.querySelector(
+        '.sidebar-nav__children[data-group-children="' + btn.dataset.group + '"]'
+      );
+      if (children) children.classList.remove('is-open');
+    });
+  }
+
+  function openGroup(group) {
+    var btn = shell.querySelector('.sidebar-nav__group[data-group="' + group + '"]');
+    var children = shell.querySelector(
+      '.sidebar-nav__children[data-group-children="' + group + '"]'
+    );
+    if (!btn || !children) return;
+
+    btn.classList.add('is-open');
+    btn.setAttribute('aria-expanded', 'true');
+    children.classList.add('is-open');
+  }
+
+  /* Manual toggle — clicking the group header itself */
+  groups.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var group = btn.dataset.group;
+      var children = shell.querySelector(
+        '.sidebar-nav__children[data-group-children="' + group + '"]'
+      );
+      if (!children) return;
+
+      var isOpen = btn.classList.toggle('is-open');
+      children.classList.toggle('is-open', isOpen);
+      btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+  });
+
+  /* ============================================================
+     SECTION HELPERS
      ============================================================ */
 
   function getSectionFromUrl() {
@@ -30,7 +93,10 @@
   }
 
   function showSection(name, updateUrl) {
-    if (!validSection(name)) name = 'overview';
+    if (!validSection(name)) {
+      console.warn('[dashboard] section not found:', name);
+      return;
+    }
 
     var target = document.getElementById('dashboard-' + name);
 
@@ -43,7 +109,21 @@
     navItems.forEach(function (item) {
       var on = item.dataset.section === name;
       item.classList.toggle('is-active', on);
+      if (on) item.setAttribute('aria-current', 'page');
+      else item.removeAttribute('aria-current');
     });
+
+    /* -------- BEHAVIOR B: close group unless section is a child -------- */
+    var owner = groupOwning(name);
+    if (owner) {
+      // Section belongs to a group → open that group, close others.
+      closeAllGroups(owner);
+      openGroup(owner);
+    } else {
+      // Section is outside every group → close all groups.
+      closeAllGroups(null);
+    }
+    /* ------------------------------------------------------------------- */
 
     closeSidebar();
 
@@ -67,18 +147,22 @@
   triggers.forEach(function (t) {
     t.addEventListener('click', function (e) {
       var name = e.currentTarget.dataset.section;
-      if (name) showSection(name);
+      if (name) {
+        e.preventDefault();
+        showSection(name);
+      }
     });
   });
 
   /* ============================================================
-     SIDEBAR TOGGLE
+     SIDEBAR TOGGLE (mobile)
      ============================================================ */
 
   if (menuBtn && sidebar) {
     menuBtn.addEventListener('click', function () {
       sidebar.classList.toggle('is-open');
-      menuBtn.setAttribute('aria-expanded', sidebar.classList.contains('is-open') ? 'true' : 'false');
+      menuBtn.setAttribute('aria-expanded',
+        sidebar.classList.contains('is-open') ? 'true' : 'false');
     });
   }
 
@@ -104,7 +188,6 @@
     if (!logoutModal) return;
     logoutModal.classList.remove('is-hidden');
     document.body.classList.add('modal-open');
-
     setTimeout(function () {
       var okBtn = logoutModal.querySelector('#logoutConfirmBtn');
       if (okBtn) okBtn.focus();
@@ -119,12 +202,10 @@
 
   if (logoutBtn && logoutModal) {
     logoutBtn.addEventListener('click', openLogoutModal);
-
     logoutModal.addEventListener('click', function (e) {
       if (e.target === logoutModal) closeLogoutModal();
       if (e.target.closest('[data-logout-close]')) closeLogoutModal();
     });
-
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !logoutModal.classList.contains('is-hidden')) {
         closeLogoutModal();
@@ -159,7 +240,6 @@
     group.addEventListener('click', function (e) {
       var btn = e.target.closest('.tab-btn');
       if (!btn) return;
-
       group.querySelectorAll('.tab-btn').forEach(function (b) {
         b.classList.remove('is-active');
       });

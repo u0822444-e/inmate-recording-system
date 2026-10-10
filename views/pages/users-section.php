@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 use App\Services\Auth;
-if (!Auth::isAdmin()) return;
+if (!Auth::isLoggedIn() || !Auth::isAdmin())
+    return;
 
 $isUsersActive = ($currentSection ?? '') === 'users';
 ?>
-<section id="dashboard-users"
-         class="dashboard-section <?= $isUsersActive ? 'is-visible' : '' ?>">
+<section id="dashboard-users" class="dashboard-section <?= $isUsersActive ? 'is-visible' : '' ?>" data-is-admin="1">
 
     <header class="section-header">
         <div>
@@ -28,11 +28,8 @@ $isUsersActive = ($currentSection ?? '') === 'users';
         <div class="panel__toolbar">
             <div class="input-wrap">
                 <i class="bi bi-search" aria-hidden="true"></i>
-                <input type="search"
-                       id="userSearch"
-                       class="input-search"
-                       placeholder="Search by name, username, or employee no."
-                       aria-label="Search users">
+                <input type="search" id="userSearch" class="input-search"
+                    placeholder="Search by name, username, or employee no." aria-label="Search users">
             </div>
 
             <select id="userRoleFilter" class="input-select" aria-label="Filter by role">
@@ -46,6 +43,10 @@ $isUsersActive = ($currentSection ?? '') === 'users';
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
             </select>
+
+            <select id="userJailUnitFilter" class="input-select" aria-label="Filter by jail unit">
+                <option value="">All jail units</option>
+            </select>
         </div>
 
         <div class="table-wrap">
@@ -53,11 +54,11 @@ $isUsersActive = ($currentSection ?? '') === 'users';
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Jail Unit</th>
                         <th>Employee No.</th>
-                        <th>Position</th>
+                        <th>BJMP Rank</th>
                         <th>Role</th>
                         <th>Status</th>
-                        <th id="userDateColHeader">Created</th>
                         <th class="ta-right">Actions</th>
                     </tr>
                 </thead>

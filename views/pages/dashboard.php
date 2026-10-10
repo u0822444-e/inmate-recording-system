@@ -6,11 +6,7 @@ $isAdmin = Auth::isAdmin();
 $user    = Auth::user();
 $today   = date('M j, Y');
 
-/* ----------------------------------------------------------
-   Read current section from the query string so PHP renders
-   the correct section on first paint (no flash on refresh).
-   ---------------------------------------------------------- */
-$allowedSections = ['overview', 'recording', 'inmates', 'visitors', 'incidents', 'headcount', 'users'];
+$allowedSections = ['overview', 'recording', 'inmates', 'visitors', 'incidents', 'headcount', 'users', 'jail-units', 'reports', 'profile'];
 $requested       = $_GET['section'] ?? 'overview';
 $currentSection  = in_array($requested, $allowedSections, true) ? $requested : 'overview';
 ?>
@@ -67,7 +63,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
 
             <div class="kpi-grid">
                 <?php if ($isAdmin): ?>
-
                     <article class="kpi">
                         <div class="kpi__header">
                             <span class="kpi__label">Total PDL</span>
@@ -76,7 +71,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                         <strong class="kpi__value" id="statTotalInmates">—</strong>
                         <span class="kpi__hint">Persons deprived of liberty</span>
                     </article>
-
                     <article class="kpi">
                         <div class="kpi__header">
                             <span class="kpi__label">Visitors Today</span>
@@ -85,7 +79,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                         <strong class="kpi__value" id="statVisitors">—</strong>
                         <span class="kpi__hint">Currently recorded</span>
                     </article>
-
                     <article class="kpi">
                         <div class="kpi__header">
                             <span class="kpi__label">Open Incidents</span>
@@ -94,7 +87,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                         <strong class="kpi__value" id="statIncidents">—</strong>
                         <span class="kpi__hint">Pending review</span>
                     </article>
-
                     <article class="kpi">
                         <div class="kpi__header">
                             <span class="kpi__label">Active Users</span>
@@ -103,9 +95,7 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                         <strong class="kpi__value" id="statUsers">—</strong>
                         <span class="kpi__hint">System accounts</span>
                     </article>
-
                 <?php else: ?>
-
                     <article class="kpi">
                         <div class="kpi__header">
                             <span class="kpi__label">My Entries Today</span>
@@ -114,7 +104,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                         <strong class="kpi__value" id="statMyEntries">—</strong>
                         <span class="kpi__hint">Records you created</span>
                     </article>
-
                     <article class="kpi">
                         <div class="kpi__header">
                             <span class="kpi__label">Headcounts Logged</span>
@@ -123,7 +112,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                         <strong class="kpi__value" id="statMyHeadcount">—</strong>
                         <span class="kpi__hint">Submitted today</span>
                     </article>
-
                     <article class="kpi">
                         <div class="kpi__header">
                             <span class="kpi__label">Total PDL</span>
@@ -132,7 +120,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                         <strong class="kpi__value" id="statTotalInmates">—</strong>
                         <span class="kpi__hint">Facility population</span>
                     </article>
-
                     <article class="kpi">
                         <div class="kpi__header">
                             <span class="kpi__label">Visitors Today</span>
@@ -141,7 +128,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                         <strong class="kpi__value" id="statVisitors">—</strong>
                         <span class="kpi__hint">Currently on-site</span>
                     </article>
-
                 <?php endif; ?>
             </div>
 
@@ -155,7 +141,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                             <button type="button" class="tab-btn">12M</button>
                         </div>
                     </header>
-
                     <div class="chart-placeholder">
                         <i class="bi bi-graph-up"></i>
                         <span>Trend data will render here</span>
@@ -169,7 +154,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                             <i class="bi bi-calendar3"></i> Calendar
                         </button>
                     </header>
-
                     <ul class="event-list" id="upcomingEvents">
                         <li class="event">
                             <span class="event__date"><strong>14</strong><small>OCT</small></span>
@@ -201,7 +185,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                     <header class="card__header">
                         <h2 class="card__title"><?= $isAdmin ? 'Recent Activity' : 'My Recent Activity' ?></h2>
                     </header>
-
                     <ul class="activity-list" id="activityFeed">
                         <li class="activity">
                             <span class="activity__icon"><i class="bi bi-clock-history"></i></span>
@@ -217,7 +200,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                     <header class="card__header">
                         <h2 class="card__title">Quick Actions</h2>
                     </header>
-
                     <div class="quick-actions">
                         <?php if ($isAdmin): ?>
                             <button type="button" class="action-tile" data-section="inmates">
@@ -278,7 +260,6 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                     IRS v1.0 · <?= htmlspecialchars($today, ENT_QUOTES) ?>
                 </span>
             </footer>
-
         </section>
 
         <!-- ============================================================
@@ -295,25 +276,50 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                 </div>
             </header>
 
-            <form class="form-grid" id="inmateForm" onsubmit="event.preventDefault();">
+            <form class="form-grid" id="inmateForm" novalidate>
+                <input type="hidden" name="province" id="inmateProvinceValue">
+                <input type="hidden" name="municipality_id" id="inmateMunicipalityId">
+                <input type="hidden" name="barangay_id" id="inmateBarangayId">
+                <input type="hidden" name="offense_id" id="inmateOffenseId">
+                <input type="hidden" name="jail_unit_id" id="inmateJailUnitId">
+
+                <fieldset class="fieldset">
+                    <legend>Identification</legend>
+                    <div class="form-row">
+                        <label>Inmate No.
+                            <input type="text" name="inmate_number" id="inmateNumber" readonly>
+                        </label>
+                        <label>Case Reference
+                            <input type="text" name="case_reference" id="inmateCaseRef" readonly>
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <label>Jail Unit
+                            <div id="inmateJailUnitWrap"></div>
+                        </label>
+                    </div>
+                </fieldset>
+
                 <fieldset class="fieldset">
                     <legend>Personal Information</legend>
                     <div class="form-row">
-                        <label>First name<input type="text" name="first_name" required></label>
-                        <label>Middle name<input type="text" name="middle_name"></label>
-                        <label>Last name<input type="text" name="last_name" required></label>
+                        <label>First name<input type="text" name="first_name" id="inmateFirstName" required></label>
+                        <label>Middle name<input type="text" name="middle_name" id="inmateMiddleName"></label>
+                        <label>Last name<input type="text" name="last_name" id="inmateLastName" required></label>
+                        <label>Suffix<input type="text" name="suffix" id="inmateSuffix" maxlength="20"></label>
                     </div>
                     <div class="form-row">
-                        <label>Date of birth<input type="date" name="dob"></label>
+                        <label>Date of birth<input type="date" name="date_of_birth" id="inmateDob"></label>
                         <label>Sex
-                            <select name="sex">
-                                <option value="">—</option>
+                            <select name="sex" id="inmateSex">
+                                <option value="Unspecified">Unspecified</option>
                                 <option>Male</option>
                                 <option>Female</option>
+                                <option>Other</option>
                             </select>
                         </label>
                         <label>Civil status
-                            <select name="civil_status">
+                            <select name="civil_status" id="inmateCivilStatus">
                                 <option value="">—</option>
                                 <option>Single</option>
                                 <option>Married</option>
@@ -327,34 +333,89 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
                 <fieldset class="fieldset">
                     <legend>Address</legend>
                     <div class="form-row">
-                        <label>Municipality<input type="text" name="municipality"></label>
-                        <label>Barangay<input type="text" name="barangay"></label>
-                        <label>Province<input type="text" name="province"></label>
-                    </div>
-                </fieldset>
-
-                <fieldset class="fieldset">
-                    <legend>Sentence</legend>
-                    <div class="form-row">
-                        <label>Case number<input type="text" name="case_no"></label>
-                        <label>Offense<input type="text" name="offense"></label>
-                        <label>Sentence<input type="text" name="sentence"></label>
-                    </div>
-                    <div class="form-row">
-                        <label>Date committed<input type="date" name="date_committed"></label>
-                        <label>Status
-                            <select name="status">
-                                <option>Detained</option>
-                                <option>Convicted</option>
-                                <option>Released</option>
-                            </select>
+                        <label>Province
+                            <div id="inmateProvinceWrap"></div>
+                        </label>
+                        <label>Municipality
+                            <div id="inmateMunicipalityWrap"></div>
+                        </label>
+                        <label>Barangay
+                            <div id="inmateBarangayWrap"></div>
                         </label>
                     </div>
                 </fieldset>
 
+                <fieldset class="fieldset">
+                    <legend>Case &amp; Custody</legend>
+                    <div class="form-row">
+                        <label>Offense
+                            <div id="inmateOffenseWrap"></div>
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <label>Classification
+                            <select name="classification" id="inmateClassification">
+                                <option value="">—</option>
+                                <option>Detainee</option>
+                                <option>Sentenced</option>
+                                <option>Awaiting Trial</option>
+                            </select>
+                        </label>
+                        <label>Committed date
+                            <input type="date" name="committed_at" id="inmateCommittedAt">
+                        </label>
+                        <label class="field-checkbox">
+                            <input type="checkbox" name="is_drug_case" id="inmateIsDrugCase" value="1">
+                            <span>Drug-related case (R.A. 9165 / 6425)</span>
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <label>
+                            <span class="field-label-row">
+                                Sentence
+                                <span class="sentence-badge" id="sentenceBadge" hidden>auto</span>
+                            </span>
+                            <div class="sentence-input">
+                                <input type="text" name="sentence" id="inmateSentence" placeholder="Auto-filled from offense">
+                                <button type="button" class="sentence-reset" id="sentenceResetBtn" hidden title="Reset to default">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            </div>
+                        </label>
+                        <label>Years (min)
+                            <input type="number" step="0.1" min="0" name="sentence_years_min" id="inmateSentenceMin" readonly>
+                        </label>
+                        <label>Years (max)
+                            <input type="number" step="0.1" min="0" name="sentence_years_max" id="inmateSentenceMax" readonly>
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <label>Admission date
+                            <input type="date" name="admission_date" id="inmateAdmissionDate" required>
+                        </label>
+                        <label>Custody status
+                            <select name="custody_status" id="inmateCustodyStatus">
+                                <option>In Custody</option>
+                                <option>Released</option>
+                                <option>Transferred</option>
+                            </select>
+                        </label>
+                    </div>
+                    <input type="hidden" name="sentence_is_manual" id="inmateSentenceManual" value="0">
+                </fieldset>
+
+                <fieldset class="fieldset">
+                    <legend>Notes</legend>
+                    <label>Additional notes
+                        <textarea name="notes" id="inmateNotes" rows="3"></textarea>
+                    </label>
+                </fieldset>
+
+                <p class="modal__error" id="inmateFormError" hidden></p>
+
                 <div class="form-actions">
                     <button type="reset" class="btn-secondary">Clear</button>
-                    <button type="submit" class="btn-primary">Save Record</button>
+                    <button type="submit" class="btn-primary" id="inmateSaveBtn">Save Record</button>
                 </div>
             </form>
         </section>
@@ -363,12 +424,7 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
         <!-- ============================================================
              INMATES
              ============================================================ -->
-        <section id="dashboard-inmates"
-                 class="dashboard-section <?= $currentSection === 'inmates' ? 'is-visible' : '' ?>">
-            <header class="section-header">
-                <div><h1>Inmate Records</h1><p>Search and review PDL records.</p></div>
-            </header>
-        </section>
+        <?php require __DIR__ . '/inmates-section.php'; ?>
 
         <!-- ============================================================
              VISITORS
@@ -400,8 +456,18 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
             </header>
         </section>
 
+        <!-- ============================================================
+             PROFILE (shared — admin & staff)
+             ============================================================ -->
+        <?php require __DIR__ . '/profile-section.php'; ?>
+
+        <!-- ============================================================
+             ADMIN-ONLY SECTIONS
+             ============================================================ -->
         <?php if ($isAdmin): ?>
             <?php require __DIR__ . '/users-section.php'; ?>
+            <?php require __DIR__ . '/jail-units-section.php'; ?>
+            <?php require __DIR__ . '/reports-section.php'; ?>
         <?php endif; ?>
 
     </main>
@@ -409,6 +475,8 @@ $currentSection  = in_array($requested, $allowedSections, true) ? $requested : '
 
 <?php if ($isAdmin): ?>
     <?php require __DIR__ . '/../components/modal-user.php'; ?>
-    <?php require __DIR__ . '/../components/modal-confirm.php'; ?>
 <?php endif; ?>
+
+<?php require __DIR__ . '/../components/modal-confirm.php'; ?>
+<?php require __DIR__ . '/../components/modal-success.php'; ?>
 <?php require __DIR__ . '/../components/modal-logout.php'; ?>

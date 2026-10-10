@@ -9,9 +9,7 @@ declare(strict_types=1);
     <aside class="auth-brand-panel" aria-label="Ipil District Jail">
 
         <div class="auth-brand">
-            <img src="assets/images/bjmp-logo.png"
-                 alt="BJMP"
-                 class="auth__logo">
+            <img src="assets/images/bjmp-logo.png" alt="BJMP" class="auth__logo">
 
             <div class="auth-brand__copy">
                 <p class="auth-brand__eyebrow">Bureau of Jail Management and Penology</p>
@@ -43,18 +41,14 @@ declare(strict_types=1);
                     </header>
 
                     <div class="roles" role="group">
-                        <button type="button"
-                                class="role-btn"
-                                onclick="selectRole('Administrator')">
+                        <button type="button" class="role-btn" onclick="selectRole('Administrator')">
                             <span class="role-circle">
                                 <i class="bi bi-shield-lock"></i>
                             </span>
                             <span class="role__label">Administrator</span>
                         </button>
 
-                        <button type="button"
-                                class="role-btn"
-                                onclick="selectRole('Staff / Officer')">
+                        <button type="button" class="role-btn" onclick="selectRole('Staff / Officer')">
                             <span class="role-circle">
                                 <i class="bi bi-person-badge"></i>
                             </span>
@@ -68,9 +62,7 @@ declare(strict_types=1);
                      ============================================================ -->
                 <section id="loginForm" class="auth-login" hidden>
                     <header class="auth-signin-header">
-                        <button type="button"
-                                class="auth-back-link"
-                                onclick="resetRole()">
+                        <button type="button" class="auth-back-link" onclick="resetRole()">
                             <i class="bi bi-arrow-left"></i>
                             <span>Back</span>
                         </button>
@@ -82,33 +74,24 @@ declare(strict_types=1);
 
                     <div id="alertBox" class="auth-alert" role="alert" aria-live="polite"></div>
 
-                    <form id="loginFormElement" class="auth-form" onsubmit="submitLogin(event)" novalidate>
+                    <form id="loginFormElement" class="auth-form" onsubmit="submitLogin(event)" novalidate
+                        autocomplete="off">
                         <input type="hidden" id="hiddenRole" name="role">
 
                         <label class="field">
                             <span>Username</span>
-                            <input type="text"
-                                   id="username"
-                                   name="username"
-                                   autocomplete="username"
-                                   required>
+                            <input type="text" id="username" name="username" autocomplete="off" autocapitalize="off"
+                                autocorrect="off" spellcheck="false" readonly required>
                         </label>
 
                         <label class="field">
                             <span>Password</span>
                             <div class="input-password">
-                                <input type="password"
-                                       id="password"
-                                       name="password"
-                                       autocomplete="current-password"
-                                       required>
+                                <input type="password" id="password" name="password" autocomplete="new-password"
+                                    readonly required>
 
-                                <button type="button"
-                                        class="input-password__toggle"
-                                        id="togglePassword"
-                                        onclick="togglePasswordVisibility()"
-                                        tabindex="-1"
-                                        aria-label="Show password">
+                                <button type="button" class="input-password__toggle" id="togglePassword"
+                                    onclick="togglePasswordVisibility()" tabindex="-1" aria-label="Show password">
                                     <i class="bi bi-eye"></i>
                                 </button>
                             </div>

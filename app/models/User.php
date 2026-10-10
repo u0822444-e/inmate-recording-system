@@ -7,12 +7,14 @@ use mysqli;
 
 class User
 {
-    public function __construct(private mysqli $db) {}
+    public function __construct(private mysqli $db)
+    {
+    }
 
     public function findByCredentials(string $username, string $role): ?array
     {
         $stmt = $this->db->prepare(
-            'SELECT id, username, password, role, full_name
+            'SELECT id, username, password, role, full_name, jail_unit_id
              FROM users
              WHERE username = ? AND role = ? AND is_active = 1
                AND archived_at IS NULL
@@ -25,22 +27,33 @@ class User
         return $user ?: null;
     }
 
-    public function all(string $q = '', string $role = '', string $status = '', string $scope = 'active'): array
-    {
-        $sql = 'SELECT id, username, first_name, middle_name, last_name, full_name,
-                       email, phone, birthdate, sex, civil_status,
-                       employee_no, position, rank, department, date_hired, employment_status,
-                       role, is_active, created_at, archived_at
-                FROM users WHERE 1 = 1';
+    public function all(
+        string $q = '',
+        string $role = '',
+        string $status = '',
+        string $scope = 'active',
+        int $jailUnitId = 0
+    ): array {
+        $sql = 'SELECT u.id, u.username, u.jail_unit_id,
+                   u.first_name, u.middle_name, u.last_name, u.full_name,
+                   u.email, u.phone, u.birthdate, u.sex, u.civil_status,
+                   u.employee_no, u.`position`, u.`rank`, u.department, u.date_hired, u.employment_status,
+                   u.bjmp_rank, u.salary_grade, u.personnel_type, u.eligibility,
+                   u.role, u.is_active, u.created_at, u.archived_at,
+                   j.name AS jail_unit_name
+            FROM users u
+            LEFT JOIN jail_units j ON j.id = u.jail_unit_id
+            WHERE 1 = 1';
+
         $params = [];
         $types = '';
 
         $sql .= $scope === 'archived'
-            ? ' AND archived_at IS NOT NULL'
-            : ' AND archived_at IS NULL';
+            ? ' AND u.archived_at IS NOT NULL'
+            : ' AND u.archived_at IS NULL';
 
         if ($q !== '') {
-            $sql .= ' AND (username LIKE ? OR full_name LIKE ? OR employee_no LIKE ?)';
+            $sql .= ' AND (u.username LIKE ? OR u.full_name LIKE ? OR u.employee_no LIKE ?)';
             $like = '%' . $q . '%';
             $params[] = $like;
             $params[] = $like;
@@ -49,30 +62,37 @@ class User
         }
 
         if ($role !== '') {
-            $sql .= ' AND role = ?';
+            $sql .= ' AND u.role = ?';
             $params[] = $role;
             $types .= 's';
         }
 
         if ($status === 'active') {
-            $sql .= ' AND is_active = 1';
+            $sql .= ' AND u.is_active = 1';
         } elseif ($status === 'inactive') {
-            $sql .= ' AND is_active = 0';
+            $sql .= ' AND u.is_active = 0';
         }
 
-        $sql .= ' ORDER BY role ASC, last_name ASC, first_name ASC';
+        if ($jailUnitId > 0) {
+            $sql .= ' AND u.jail_unit_id = ?';
+            $params[] = $jailUnitId;
+            $types .= 'i';
+        }
+
+        $sql .= ' ORDER BY u.role ASC, u.last_name ASC, u.first_name ASC';
 
         $stmt = $this->db->prepare($sql);
-        if ($params) {
+        if ($params)
             $stmt->bind_param($types, ...$params);
-        }
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
 
         foreach ($rows as &$r) {
-            $r['id']        = (int) $r['id'];
+            $r['id'] = (int) $r['id'];
+            $r['jail_unit_id'] = $r['jail_unit_id'] !== null ? (int) $r['jail_unit_id'] : null;
             $r['is_active'] = (bool) $r['is_active'];
+            $r['salary_grade'] = $r['salary_grade'] !== null ? (int) $r['salary_grade'] : null;
         }
         return $rows;
     }
@@ -80,7 +100,10 @@ class User
     public function find(int $id): ?array
     {
         $stmt = $this->db->prepare(
-            'SELECT * FROM users WHERE id = ? LIMIT 1'
+            'SELECT u.*, j.name AS jail_unit_name
+             FROM users u
+             LEFT JOIN jail_units j ON j.id = u.jail_unit_id
+             WHERE u.id = ? LIMIT 1'
         );
         $stmt->bind_param('i', $id);
         $stmt->execute();
@@ -95,16 +118,17 @@ class User
 
         $stmt = $this->db->prepare(
             'INSERT INTO users
-             (username, first_name, middle_name, last_name, full_name,
+             (username, jail_unit_id, first_name, middle_name, last_name, full_name,
               email, phone, birthdate, sex, civil_status,
-              employee_no, position, rank, department, date_hired, employment_status,
+              employee_no, `position`, `rank`, department, date_hired, employment_status,
+              bjmp_rank, salary_grade, personnel_type, eligibility,
               role, password, is_active, archived_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)'
         );
 
-        $stmt->bind_param(
-            'ssssssssssssssssss',
+        $params = [
             $data['username'],
+            $data['jail_unit_id'],
             $data['first_name'],
             $data['middle_name'],
             $data['last_name'],
@@ -120,10 +144,20 @@ class User
             $data['department'],
             $data['date_hired'],
             $data['employment_status'],
+            $data['bjmp_rank'],
+            $data['salary_grade'],
+            $data['personnel_type'],
+            $data['eligibility'],
             $data['role'],
-            $hash
-        );
+            $hash,
+        ];
 
+        $types = '';
+        foreach ($params as $p) {
+            $types .= is_int($p) ? 'i' : 's';
+        }
+
+        $stmt->bind_param($types, ...$params);
         $stmt->execute();
         $id = (int) $stmt->insert_id;
         $stmt->close();
@@ -133,13 +167,17 @@ class User
     public function update(int $id, array $data): void
     {
         $sql = 'UPDATE users SET
-                    username = ?, first_name = ?, middle_name = ?, last_name = ?, full_name = ?,
+                    username = ?,
+                    jail_unit_id = ?,
+                    first_name = ?, middle_name = ?, last_name = ?, full_name = ?,
                     email = ?, phone = ?, birthdate = ?, sex = ?, civil_status = ?,
-                    employee_no = ?, position = ?, rank = ?, department = ?, date_hired = ?, employment_status = ?,
+                    employee_no = ?, `position` = ?, `rank` = ?, department = ?, date_hired = ?, employment_status = ?,
+                    bjmp_rank = ?, salary_grade = ?, personnel_type = ?, eligibility = ?,
                     role = ?';
 
         $params = [
             $data['username'],
+            $data['jail_unit_id'],
             $data['first_name'],
             $data['middle_name'],
             $data['last_name'],
@@ -155,19 +193,25 @@ class User
             $data['department'],
             $data['date_hired'],
             $data['employment_status'],
+            $data['bjmp_rank'],
+            $data['salary_grade'],
+            $data['personnel_type'],
+            $data['eligibility'],
             $data['role'],
         ];
-        $types = 'sssssssssssssssss';
 
         if (!empty($data['password'])) {
             $sql .= ', password = ?';
             $params[] = password_hash($data['password'], PASSWORD_DEFAULT);
-            $types .= 's';
         }
 
         $sql .= ' WHERE id = ?';
         $params[] = $id;
-        $types .= 'i';
+
+        $types = '';
+        foreach ($params as $p) {
+            $types .= is_int($p) ? 'i' : 's';
+        }
 
         $stmt = $this->db->prepare($sql);
         $stmt->bind_param($types, ...$params);
@@ -223,10 +267,6 @@ class User
         return $exists;
     }
 
-    /**
-     * Generate a unique username "{first}.{last}" lowercased.
-     * Appends a numeric suffix if taken.
-     */
     public function generateUsername(string $firstName, string $lastName, int $excludeId = 0): string
     {
         $base = strtolower(
@@ -234,8 +274,9 @@ class User
             preg_replace('/[^a-z0-9]/i', '', $lastName)
         );
         $base = trim($base, '.');
-
-        if ($base === '') $base = 'user';
+        if ($base === '') {
+            $base = 'user';
+        }
 
         $candidate = $base;
         $suffix = 1;

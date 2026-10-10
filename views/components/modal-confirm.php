@@ -1,7 +1,5 @@
 <?php
 declare(strict_types=1);
-use App\Services\Auth;
-if (!Auth::isAdmin()) return;
 ?>
 <div class="modal-backdrop is-hidden" id="confirmModal">
     <div class="dj-modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">

@@ -7,55 +7,131 @@
   var alertBox    = document.getElementById('alertBox');
   var formEl      = document.getElementById('loginFormElement');
   var submitBtn   = document.getElementById('submitBtn');
+  var usernameEl  = document.getElementById('username');
+  var passwordEl  = document.getElementById('password');
 
   var currentRole = '';
 
+  /* ============================================================
+     Enable a field the first time it's focused.
+     The field starts as `readonly` to block autofill; we remove
+     that attribute on user interaction.
+     ============================================================ */
+
+  function unlockField(el) {
+    if (!el) return;
+    if (el.hasAttribute('readonly')) {
+      el.removeAttribute('readonly');
+    }
+  }
+
+  if (usernameEl) {
+    usernameEl.addEventListener('focus', function () { unlockField(usernameEl); });
+    usernameEl.addEventListener('mousedown', function () { unlockField(usernameEl); });
+    usernameEl.addEventListener('touchstart', function () { unlockField(usernameEl); }, { passive: true });
+  }
+
+  if (passwordEl) {
+    passwordEl.addEventListener('focus', function () { unlockField(passwordEl); });
+    passwordEl.addEventListener('mousedown', function () { unlockField(passwordEl); });
+    passwordEl.addEventListener('touchstart', function () { unlockField(passwordEl); }, { passive: true });
+  }
+
+  /* ============================================================
+     ROLE SELECTION
+     ============================================================ */
+
   window.selectRole = function (role) {
+    if (role !== 'Administrator' && role !== 'Staff / Officer') {
+      return;
+    }
+
     currentRole = role;
     hiddenRole.value = role;
 
     var label = document.getElementById('activeRoleLabel');
     if (label) label.textContent = role;
 
+    /* Clear any prior state from the previous role */
+    if (formEl) formEl.reset();
+    if (alertBox) alertBox.innerHTML = '';
+
     if (roleSection) roleSection.hidden = true;
     if (loginForm) loginForm.hidden = false;
 
-    var u = document.getElementById('username');
-    if (u) u.focus();
+    /* Re-apply readonly to block autofill after the reset */
+    if (usernameEl) usernameEl.setAttribute('readonly', 'readonly');
+    if (passwordEl) passwordEl.setAttribute('readonly', 'readonly');
+
+    if (usernameEl) {
+      setTimeout(function () { usernameEl.focus(); }, 50);
+    }
   };
+
+  /* ============================================================
+     RESET ROLE
+     ============================================================ */
 
   window.resetRole = function () {
     if (loginForm) loginForm.hidden = true;
     if (roleSection) roleSection.hidden = false;
     if (alertBox) alertBox.innerHTML = '';
     if (formEl) formEl.reset();
+
     currentRole = '';
     if (hiddenRole) hiddenRole.value = '';
+
+    if (usernameEl) usernameEl.setAttribute('readonly', 'readonly');
+    if (passwordEl) passwordEl.setAttribute('readonly', 'readonly');
   };
+
+  /* ============================================================
+     SHOW / HIDE PASSWORD
+     ============================================================ */
 
   window.togglePasswordVisibility = function () {
-    var input = document.getElementById('password');
-    var btn = document.getElementById('togglePassword');
-    if (!input || !btn) return;
+    if (!passwordEl) return;
 
-    var isHidden = input.type === 'password';
-    input.type = isHidden ? 'text' : 'password';
-    btn.querySelector('i').className = isHidden ? 'bi bi-eye-slash' : 'bi bi-eye';
-    input.focus();
+    var btn = document.getElementById('togglePassword');
+    if (!btn) return;
+
+    unlockField(passwordEl);
+
+    var isHidden = passwordEl.type === 'password';
+    passwordEl.type = isHidden ? 'text' : 'password';
+
+    var icon = btn.querySelector('i');
+    if (icon) {
+      icon.className = isHidden ? 'bi bi-eye-slash' : 'bi bi-eye';
+    }
+
+    passwordEl.focus();
   };
+
+  /* ============================================================
+     SUBMIT LOGIN
+     ============================================================ */
 
   window.submitLogin = function (e) {
     e.preventDefault();
 
-    var username = document.getElementById('username').value.trim();
-    var password = document.getElementById('password').value;
-
+    /* Role must be explicitly selected */
     if (!currentRole) {
-      alertBox.innerHTML = '<div class="alert alert--error">Select an account type.</div>';
+      if (alertBox) alertBox.innerHTML = '<div class="alert alert--error">Select an account type.</div>';
       return;
     }
+
+    /* Guard against tampering with the hidden field */
+    if (hiddenRole.value !== currentRole) {
+      if (alertBox) alertBox.innerHTML = '<div class="alert alert--error">Account type mismatch. Please try again.</div>';
+      return;
+    }
+
+    var username = usernameEl ? usernameEl.value.trim() : '';
+    var password = passwordEl ? passwordEl.value : '';
+
     if (!username || !password) {
-      alertBox.innerHTML = '<div class="alert alert--error">Enter username and password.</div>';
+      if (alertBox) alertBox.innerHTML = '<div class="alert alert--error">Enter username and password.</div>';
       return;
     }
 
@@ -76,15 +152,20 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.success) {
-          alertBox.innerHTML = '<div class="alert alert--error">' + data.message + '</div>';
+          if (alertBox) alertBox.innerHTML = '<div class="alert alert--error">' + data.message + '</div>';
           submitBtn.disabled = false;
           submitBtn.textContent = 'Sign in';
           return;
         }
-        window.location.href = 'index.php';
+
+        if (alertBox) alertBox.innerHTML = '<div class="alert alert--success">Sign-in successful.</div>';
+
+        setTimeout(function () {
+          window.location.href = 'index.php';
+        }, 250);
       })
       .catch(function () {
-        alertBox.innerHTML = '<div class="alert alert--error">Connection error.</div>';
+        if (alertBox) alertBox.innerHTML = '<div class="alert alert--error">Connection error.</div>';
         submitBtn.disabled = false;
         submitBtn.textContent = 'Sign in';
       });

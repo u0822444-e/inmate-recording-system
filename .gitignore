@@ -1,0 +1,24 @@
+# Config with secrets
+config/database.php
+
+# OS junk
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+php_errors.log
+
+# Uploads / user data
+public_html/uploads/
+public_html/assets/uploads/
+
+# Composer / node (if you ever add them)
+vendor/
+node_modules/

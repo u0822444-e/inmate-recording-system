@@ -23,26 +23,36 @@ class UserController
 
         $method = $_SERVER['REQUEST_METHOD'];
 
-        if ($method === 'GET' && $action === 'list')            $this->list();
-        elseif ($method === 'GET' && $action === 'suggest-username') $this->suggestUsername();
-        elseif ($method === 'POST' && $action === 'create')     $this->create();
-        elseif ($method === 'POST' && $action === 'update')     $this->update();
-        elseif ($method === 'POST' && $action === 'toggle')     $this->toggle();
-        elseif ($method === 'POST' && $action === 'archive')    $this->archive();
-        elseif ($method === 'POST' && $action === 'restore')    $this->restore();
-        elseif ($method === 'POST' && $action === 'delete')     $this->delete();
-        else Response::json(false, 'Unsupported request.');
+        if ($method === 'GET' && $action === 'list')
+            $this->list();
+        elseif ($method === 'GET' && $action === 'suggest-username')
+            $this->suggestUsername();
+        elseif ($method === 'POST' && $action === 'create')
+            $this->create();
+        elseif ($method === 'POST' && $action === 'update')
+            $this->update();
+        elseif ($method === 'POST' && $action === 'toggle')
+            $this->toggle();
+        elseif ($method === 'POST' && $action === 'archive')
+            $this->archive();
+        elseif ($method === 'POST' && $action === 'restore')
+            $this->restore();
+        elseif ($method === 'POST' && $action === 'delete')
+            $this->delete();
+        else
+            Response::json(false, 'Unsupported request.');
     }
 
     private function list(): void
     {
-        $q      = trim((string) ($_GET['q'] ?? ''));
-        $role   = trim((string) ($_GET['role'] ?? ''));
+        $q = trim((string) ($_GET['q'] ?? ''));
+        $role = trim((string) ($_GET['role'] ?? ''));
         $status = trim((string) ($_GET['status'] ?? ''));
-        $scope  = ($_GET['scope'] ?? 'active') === 'archived' ? 'archived' : 'active';
+        $scope = ($_GET['scope'] ?? 'active') === 'archived' ? 'archived' : 'active';
+        $jailUnitId = (int) ($_GET['jail_unit_id'] ?? 0);
 
         Response::json(true, 'OK', [
-            'users' => $this->model->all($q, $role, $status, $scope),
+            'users' => $this->model->all($q, $role, $status, $scope, $jailUnitId),
             'scope' => $scope,
         ]);
     }
@@ -50,8 +60,8 @@ class UserController
     private function suggestUsername(): void
     {
         $first = trim((string) ($_GET['first_name'] ?? ''));
-        $last  = trim((string) ($_GET['last_name'] ?? ''));
-        $id    = (int) ($_GET['id'] ?? 0);
+        $last = trim((string) ($_GET['last_name'] ?? ''));
+        $id = (int) ($_GET['id'] ?? 0);
 
         if ($first === '' || $last === '') {
             Response::json(false, 'First and last name required.');
@@ -91,15 +101,20 @@ class UserController
 
     private function update(): void
     {
-        $p  = Response::readJsonInput();
+        $p = Response::readJsonInput();
         $id = (int) ($p['id'] ?? 0);
 
-        if ($id <= 0) Response::json(false, 'Invalid user.');
+        if ($id <= 0)
+            Response::json(false, 'Invalid user.');
+
+        if (!$this->model->find($id))
+            Response::json(false, 'User not found.');
 
         $fields = $this->extract($p);
         $this->validate($fields, $id);
 
-        if ($id === Auth::user()['id'] && $fields['role'] !== 'Administrator') {
+        $currentId = (int) Auth::user()['id'];
+        if ($id === $currentId && $fields['role'] !== 'Administrator') {
             Response::json(false, 'You cannot change your own role.');
         }
 
@@ -118,11 +133,18 @@ class UserController
 
     private function toggle(): void
     {
-        $p  = Response::readJsonInput();
+        $p = Response::readJsonInput();
         $id = (int) ($p['id'] ?? 0);
 
-        if ($id <= 0) Response::json(false, 'Invalid user.');
-        if ($id === Auth::user()['id']) Response::json(false, 'You cannot deactivate yourself.');
+        if ($id <= 0)
+            Response::json(false, 'Invalid user.');
+
+        if (!$this->model->find($id))
+            Response::json(false, 'User not found.');
+
+        $currentId = (int) Auth::user()['id'];
+        if ($id === $currentId)
+            Response::json(false, 'You cannot deactivate yourself.');
 
         $this->model->toggle($id);
         Response::json(true, 'Status updated.');
@@ -130,11 +152,18 @@ class UserController
 
     private function archive(): void
     {
-        $p  = Response::readJsonInput();
+        $p = Response::readJsonInput();
         $id = (int) ($p['id'] ?? 0);
 
-        if ($id <= 0) Response::json(false, 'Invalid user.');
-        if ($id === Auth::user()['id']) Response::json(false, 'You cannot archive yourself.');
+        if ($id <= 0)
+            Response::json(false, 'Invalid user.');
+
+        if (!$this->model->find($id))
+            Response::json(false, 'User not found.');
+
+        $currentId = (int) Auth::user()['id'];
+        if ($id === $currentId)
+            Response::json(false, 'You cannot archive yourself.');
 
         $this->model->archive($id);
         Response::json(true, 'User archived.');
@@ -142,10 +171,14 @@ class UserController
 
     private function restore(): void
     {
-        $p  = Response::readJsonInput();
+        $p = Response::readJsonInput();
         $id = (int) ($p['id'] ?? 0);
 
-        if ($id <= 0) Response::json(false, 'Invalid user.');
+        if ($id <= 0)
+            Response::json(false, 'Invalid user.');
+
+        if (!$this->model->find($id))
+            Response::json(false, 'User not found.');
 
         $this->model->restore($id);
         Response::json(true, 'User restored.');
@@ -153,11 +186,18 @@ class UserController
 
     private function delete(): void
     {
-        $p  = Response::readJsonInput();
+        $p = Response::readJsonInput();
         $id = (int) ($p['id'] ?? 0);
 
-        if ($id <= 0) Response::json(false, 'Invalid user.');
-        if ($id === Auth::user()['id']) Response::json(false, 'You cannot delete yourself.');
+        if ($id <= 0)
+            Response::json(false, 'Invalid user.');
+
+        if (!$this->model->find($id))
+            Response::json(false, 'User not found.');
+
+        $currentId = (int) Auth::user()['id'];
+        if ($id === $currentId)
+            Response::json(false, 'You cannot delete yourself.');
 
         $this->model->delete($id);
         Response::json(true, 'User permanently deleted.');
@@ -169,30 +209,36 @@ class UserController
 
     private function extract(array $p): array
     {
-        $first  = trim((string) ($p['first_name'] ?? ''));
+        $first = trim((string) ($p['first_name'] ?? ''));
         $middle = trim((string) ($p['middle_name'] ?? ''));
-        $last   = trim((string) ($p['last_name'] ?? ''));
+        $last = trim((string) ($p['last_name'] ?? ''));
 
         $fullName = trim(implode(' ', array_filter([$first, $middle, $last])));
 
         return [
-            'first_name'        => $first,
-            'middle_name'       => $middle,
-            'last_name'         => $last,
-            'full_name'         => $fullName,
-            'username'          => trim((string) ($p['username'] ?? '')),
-            'email'             => trim((string) ($p['email'] ?? '')),
-            'phone'             => trim((string) ($p['phone'] ?? '')),
-            'birthdate'         => trim((string) ($p['birthdate'] ?? '')) ?: null,
-            'sex'               => trim((string) ($p['sex'] ?? '')) ?: null,
-            'civil_status'      => trim((string) ($p['civil_status'] ?? '')) ?: null,
-            'employee_no'       => trim((string) ($p['employee_no'] ?? '')) ?: null,
-            'position'          => trim((string) ($p['position'] ?? '')) ?: null,
-            'rank'              => trim((string) ($p['rank'] ?? '')) ?: null,
-            'department'        => trim((string) ($p['department'] ?? '')) ?: null,
-            'date_hired'        => trim((string) ($p['date_hired'] ?? '')) ?: null,
+            'first_name' => $first,
+            'middle_name' => $middle,
+            'last_name' => $last,
+            'full_name' => $fullName,
+            'username' => trim((string) ($p['username'] ?? '')),
+            'email' => trim((string) ($p['email'] ?? '')),
+            'phone' => trim((string) ($p['phone'] ?? '')),
+            'birthdate' => trim((string) ($p['birthdate'] ?? '')) ?: null,
+            'sex' => trim((string) ($p['sex'] ?? '')) ?: null,
+            'civil_status' => trim((string) ($p['civil_status'] ?? '')) ?: null,
+            'employee_no' => trim((string) ($p['employee_no'] ?? '')) ?: null,
+            'position' => trim((string) ($p['position'] ?? '')) ?: null,
+            'rank' => trim((string) ($p['rank'] ?? '')) ?: null,
+            'department' => trim((string) ($p['department'] ?? '')) ?: null,
+            'date_hired' => trim((string) ($p['date_hired'] ?? '')) ?: null,
             'employment_status' => trim((string) ($p['employment_status'] ?? '')) ?: null,
-            'role'              => trim((string) ($p['role'] ?? '')),
+            'bjmp_rank' => trim((string) ($p['bjmp_rank'] ?? '')) ?: null,
+            'salary_grade' => isset($p['salary_grade']) && $p['salary_grade'] !== ''
+                ? (int) $p['salary_grade'] : null,
+            'personnel_type' => trim((string) ($p['personnel_type'] ?? '')) ?: null,
+            'eligibility' => trim((string) ($p['eligibility'] ?? '')) ?: null,
+            'role' => trim((string) ($p['role'] ?? '')),
+            'jail_unit_id' => (int) ($p['jail_unit_id'] ?? 0) ?: null,
         ];
     }
 
@@ -205,8 +251,11 @@ class UserController
             Response::json(false, 'Invalid role.');
         }
 
-        if ($id === null && strlen($f['username']) > 0 && strlen($f['username']) > 100) {
-            Response::json(false, 'Username must be 3-100 characters.');
+        if ($f['username'] !== '') {
+            $len = strlen($f['username']);
+            if ($len < 3 || $len > 100) {
+                Response::json(false, 'Username must be 3-100 characters.');
+            }
         }
     }
 }
