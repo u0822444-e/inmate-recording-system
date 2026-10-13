@@ -7,7 +7,9 @@ use mysqli;
 
 class Dashboard
 {
-    public function __construct(private mysqli $db) {}
+    public function __construct(private mysqli $db)
+    {
+    }
 
     /* ============================================================
        ADMIN KPIs
@@ -99,7 +101,7 @@ class Dashboard
         try {
             $stmt = $this->db->prepare(
                 "SELECT COUNT(*) AS c FROM headcounts
-                 WHERE officer_id = ? AND DATE(recorded_at) = CURDATE()"
+             WHERE recorded_by = ? AND recorded_on = CURDATE()"
             );
             $stmt->bind_param('i', $userId);
             $stmt->execute();
@@ -107,10 +109,11 @@ class Dashboard
             $stmt->close();
             return $count;
         } catch (\Throwable $e) {
-            // Table may not exist yet — return 0 silently.
             return 0;
         }
     }
+
+
 
     public function myIncidentsThisWeek(int $userId): int
     {
@@ -155,7 +158,8 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) { /* ignore */ }
+        } catch (\Throwable $e) { /* ignore */
+        }
 
         // Users
         try {
@@ -172,7 +176,8 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) { /* ignore */ }
+        } catch (\Throwable $e) { /* ignore */
+        }
 
         // Visitors (optional — only if table exists)
         try {
@@ -189,7 +194,8 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) { /* ignore */ }
+        } catch (\Throwable $e) { /* ignore */
+        }
 
         // Sort merged results and cap to $limit
         usort($items, function ($a, $b) {
@@ -198,7 +204,7 @@ class Dashboard
         $items = array_slice($items, 0, $limit);
 
         foreach ($items as &$r) {
-            $r['id']          = (int) $r['id'];
+            $r['id'] = (int) $r['id'];
             $r['happened_at'] = (string) $r['happened_at'];
         }
         return $items;
@@ -226,25 +232,26 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) { /* ignore */ }
+        } catch (\Throwable $e) { /* ignore */
+        }
 
         // Headcounts submitted by this user
         try {
             $stmt = $this->db->prepare(
                 "SELECT 'headcount' AS kind, id,
-                        'Headcount submitted' AS title,
-                        CONCAT('Shift ', COALESCE(shift,''), ' · ', COALESCE(count,0), ' PDL') AS subtitle,
+                        'Headcount recorded' AS title,
+                        CONCAT(actual_count, ' PDL on ', recorded_on) AS subtitle,
                         recorded_at AS happened_at
-                 FROM headcounts
-                 WHERE officer_id = ?
-                 ORDER BY recorded_at DESC
-                 LIMIT ?"
+                FROM headcounts
+                WHERE recorded_by = ?
+                ORDER BY recorded_at DESC LIMIT ?"
             );
             $stmt->bind_param('ii', $userId, $limit);
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) { /* ignore */ }
+        } catch (\Throwable $e) { /* ignore */
+        }
 
         usort($items, function ($a, $b) {
             return strcmp((string) $b['happened_at'], (string) $a['happened_at']);
@@ -252,7 +259,7 @@ class Dashboard
         $items = array_slice($items, 0, $limit);
 
         foreach ($items as &$r) {
-            $r['id']          = (int) $r['id'];
+            $r['id'] = (int) $r['id'];
             $r['happened_at'] = (string) $r['happened_at'];
         }
         return $items;
@@ -266,9 +273,9 @@ class Dashboard
     {
         // Placeholder until an events/hearings table is built.
         $demo = [
-            ['date' => '2026-10-14', 'time' => '09:00', 'title' => 'Court Hearing',  'meta' => 'RTC Ipil · 3 PDL'],
+            ['date' => '2026-10-14', 'time' => '09:00', 'title' => 'Court Hearing', 'meta' => 'RTC Ipil · 3 PDL'],
             ['date' => '2026-10-15', 'time' => '13:00', 'title' => 'Visitation Day', 'meta' => 'Block B · 13:00–17:00'],
-            ['date' => '2026-10-18', 'time' => '08:00', 'title' => 'Headcount Audit','meta' => 'Region IX · 08:00'],
+            ['date' => '2026-10-18', 'time' => '08:00', 'title' => 'Headcount Audit', 'meta' => 'Region IX · 08:00'],
         ];
         return array_slice($demo, 0, $limit);
     }
@@ -281,23 +288,20 @@ class Dashboard
     {
         try {
             $stmt = $this->db->prepare(
-                "SELECT DATE(recorded_at) AS d, MAX(count) AS c
-                 FROM headcounts
-                 WHERE recorded_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-                 GROUP BY DATE(recorded_at)
-                 ORDER BY d ASC"
+                "SELECT recorded_on AS d, MAX(actual_count) AS c
+             FROM headcounts
+             WHERE recorded_on >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+             GROUP BY recorded_on
+             ORDER BY d ASC"
             );
             $stmt->bind_param('i', $days);
             $stmt->execute();
             $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
-
-            return array_map(function ($r) {
-                return [
-                    'date'  => (string) $r['d'],
-                    'count' => (int) $r['c'],
-                ];
-            }, $rows);
+            return array_map(fn($r) => [
+                'date' => (string) $r['d'],
+                'count' => (int) $r['c'],
+            ], $rows);
         } catch (\Throwable $e) {
             return [];
         }

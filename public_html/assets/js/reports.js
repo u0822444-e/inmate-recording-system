@@ -9,7 +9,7 @@
   var monthInput = document.getElementById('reportMonth');
   var exportBtn  = document.getElementById('reportExportBtn');
 
-  var currentReport = 'population';
+  var currentReport = 'actual-population';
   var lastLoaded    = false;
 
   /* ============================================================
@@ -48,7 +48,6 @@
   function showLoading() {
     output.innerHTML = '<div class="data-table__empty">Loading…</div>';
   }
-
   function showError(msg) {
     output.innerHTML = '<div class="data-table__empty">' + esc(msg) + '</div>';
   }
@@ -70,7 +69,7 @@
   }
 
   /* ============================================================
-     SHARED LAYOUT PIECES
+     SHARED LAYOUT
      ============================================================ */
 
   function renderReportHeader(meta) {
@@ -82,195 +81,482 @@
     '</header>';
   }
 
-  function renderReportFooter(percents) {
-    if (!percents || !percents.items || !percents.items.length || !percents.total) return '';
-
-    var parts = percents.items.map(function (p) {
-      return p.percentage.toFixed(2) + '% ' + p.classification;
-    });
-
+  function renderFooterText(text) {
     return '<footer class="report-footer">' +
       '<span class="report-footer__label">Percentage:</span> ' +
-      '<span class="report-footer__value">' + esc(parts.join(' · ')) + '</span>' +
+      '<span class="report-footer__value">' + esc(text) + '</span>' +
     '</footer>';
   }
 
   /* ============================================================
-     RENDERERS
+     POPULATION — simple
      ============================================================ */
 
   function renderPopulation(data) {
-    var rows     = data.rows     || [];
-    var totals   = data.totals   || { male: 0, female: 0, total: 0 };
-    var percents = data.percents || null;
+    var rows   = data.rows   || [];
+    var totals = data.totals || { male: 0, female: 0, total: 0 };
+    var pct    = data.percents;
 
     var html = renderReportHeader(data.meta);
 
     if (!rows.length) {
-      output.innerHTML = html +
-        '<div class="data-table__empty">No in-custody PDL records yet.</div>';
+      output.innerHTML = html + '<div class="data-table__empty">No records.</div>';
       return;
     }
 
     html +=
-      '<div class="table-wrap report-table__wrap">' +
-      '<table class="report-table">' +
-        '<thead>' +
-          '<tr>' +
-            '<th rowspan="2">Classification</th>' +
-            '<th colspan="2" class="report-table__group">Sex</th>' +
-            '<th rowspan="2" class="ta-right">Total</th>' +
-          '</tr>' +
-          '<tr>' +
-            '<th class="ta-right">Male</th>' +
-            '<th class="ta-right">Female</th>' +
-          '</tr>' +
-        '</thead>' +
-        '<tbody>';
+      '<div class="table-wrap report-table__wrap"><table class="report-table">' +
+        '<thead><tr>' +
+          '<th rowspan="2">Classification</th>' +
+          '<th colspan="2" class="report-table__group">Sex</th>' +
+          '<th rowspan="2" class="ta-right">Total</th>' +
+        '</tr><tr>' +
+          '<th class="ta-right">Male</th><th class="ta-right">Female</th>' +
+        '</tr></thead><tbody>';
 
     rows.forEach(function (r) {
-      html +=
-        '<tr>' +
-          '<td>' + esc(r.classification) + '</td>' +
-          '<td class="ta-right">' + num(r.male) + '</td>' +
-          '<td class="ta-right">' + num(r.female) + '</td>' +
-          '<td class="ta-right"><strong>' + num(r.total) + '</strong></td>' +
+      html += '<tr><td>' + esc(r.classification) + '</td>' +
+        '<td class="ta-right">' + num(r.male) + '</td>' +
+        '<td class="ta-right">' + num(r.female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.total) + '</strong></td></tr>';
+    });
+
+    html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
+      '<td class="ta-right">' + num(totals.male) + '</td>' +
+      '<td class="ta-right">' + num(totals.female) + '</td>' +
+      '<td class="ta-right">' + num(totals.total) + '</td>' +
+      '</tr></tfoot></table></div>';
+
+    if (pct && pct.items && pct.items.length) {
+      var parts = pct.items.map(function (p) {
+        return p.percentage.toFixed(2) + '% ' + p.classification;
+      });
+      html += renderFooterText(parts.join(' · '));
+    }
+
+    output.innerHTML = html;
+  }
+
+  /* ============================================================
+     POPULATION — detailed
+     ============================================================ */
+
+  function renderPopulationDetailed(data) {
+    var rows   = data.rows   || [];
+    var totals = data.totals || {};
+
+    var html = renderReportHeader(data.meta);
+
+    if (!rows.length) {
+      output.innerHTML = html + '<div class="data-table__empty">No records.</div>';
+      return;
+    }
+
+    html +=
+      '<div class="table-wrap report-table__wrap"><table class="report-table report-table--actual">' +
+        '<thead>' +
+          '<tr>' +
+            '<th rowspan="3">Classification</th>' +
+            '<th colspan="2" rowspan="2">Detainee</th>' +
+            '<th colspan="8">Sentenced</th>' +
+            '<th rowspan="3">Grand Total</th>' +
+          '</tr>' +
+          '<tr>' +
+            '<th colspan="2">Municipal</th><th colspan="2">City</th>' +
+            '<th colspan="2">Provincial</th><th colspan="2">Insular</th>' +
+          '</tr>' +
+          '<tr>' +
+            '<th>M</th><th>F</th><th>M</th><th>F</th><th>M</th><th>F</th>' +
+            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
+          '</tr>' +
+        '</thead><tbody>';
+
+    rows.forEach(function (r) {
+      html += '<tr>' +
+        '<td>' + esc(r.classification) + '</td>' +
+        '<td class="ta-right">' + num(r.detainee_male) + '</td>' +
+        '<td class="ta-right">' + num(r.detainee_female) + '</td>' +
+        '<td class="ta-right">' + num(r.municipal_male) + '</td>' +
+        '<td class="ta-right">' + num(r.municipal_female) + '</td>' +
+        '<td class="ta-right">' + num(r.city_male) + '</td>' +
+        '<td class="ta-right">' + num(r.city_female) + '</td>' +
+        '<td class="ta-right">' + num(r.provincial_male) + '</td>' +
+        '<td class="ta-right">' + num(r.provincial_female) + '</td>' +
+        '<td class="ta-right">' + num(r.insular_male) + '</td>' +
+        '<td class="ta-right">' + num(r.insular_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
         '</tr>';
     });
 
-    html +=
-        '</tbody>' +
-        '<tfoot>' +
-          '<tr>' +
-            '<td><strong>TOTAL</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.male) + '</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.female) + '</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.total) + '</strong></td>' +
-          '</tr>' +
-        '</tfoot>' +
-      '</table>' +
-      '</div>';
+    html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
+      '<td class="ta-right">' + num(totals.detainee_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.detainee_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.municipal_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.municipal_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.city_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.city_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.provincial_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.provincial_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.insular_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.insular_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.grand_total) + '</td>' +
+      '</tr></tfoot></table></div>';
 
-    html += renderReportFooter(percents);
     output.innerHTML = html;
   }
+
+  /* ============================================================
+     FLOW
+     ============================================================ */
 
   function renderFlow(data) {
     var rows   = data.rows   || [];
     var totals = data.totals || {};
-    var month  = data.month  || '';
 
     var html = renderReportHeader(data.meta);
 
     if (!rows.length) {
-      output.innerHTML = html +
-        '<div class="data-table__empty">No commits or releases for ' +
-        esc(formatMonthLabel(month)) + '.</div>';
+      output.innerHTML = html + '<div class="data-table__empty">No commits or releases for this month.</div>';
       return;
     }
 
     html +=
-      '<div class="table-wrap report-table__wrap">' +
-      '<table class="report-table">' +
-        '<thead>' +
-          '<tr>' +
-            '<th rowspan="2">Date</th>' +
-            '<th colspan="3" class="report-table__group">Committed</th>' +
-            '<th colspan="3" class="report-table__group">Released</th>' +
-          '</tr>' +
-          '<tr>' +
-            '<th class="ta-right">Male</th>' +
-            '<th class="ta-right">Female</th>' +
-            '<th class="ta-right">Total</th>' +
-            '<th class="ta-right">Male</th>' +
-            '<th class="ta-right">Female</th>' +
-            '<th class="ta-right">Total</th>' +
-          '</tr>' +
-        '</thead>' +
-        '<tbody>';
+      '<div class="table-wrap report-table__wrap"><table class="report-table">' +
+        '<thead><tr>' +
+          '<th rowspan="2">Date</th>' +
+          '<th colspan="3" class="report-table__group">Committed</th>' +
+          '<th colspan="3" class="report-table__group">Released</th>' +
+        '</tr><tr>' +
+          '<th class="ta-right">M</th><th class="ta-right">F</th><th class="ta-right">Total</th>' +
+          '<th class="ta-right">M</th><th class="ta-right">F</th><th class="ta-right">Total</th>' +
+        '</tr></thead><tbody>';
 
     rows.forEach(function (r) {
-      html +=
-        '<tr>' +
-          '<td>' + esc(formatDayLabel(r.day)) + '</td>' +
-          '<td class="ta-right">' + num(r.committed_male) + '</td>' +
-          '<td class="ta-right">' + num(r.committed_female) + '</td>' +
-          '<td class="ta-right"><strong>' + num(r.committed_total) + '</strong></td>' +
-          '<td class="ta-right">' + num(r.released_male) + '</td>' +
-          '<td class="ta-right">' + num(r.released_female) + '</td>' +
-          '<td class="ta-right"><strong>' + num(r.released_total) + '</strong></td>' +
-        '</tr>';
+      html += '<tr><td>' + esc(formatDayLabel(r.day)) + '</td>' +
+        '<td class="ta-right">' + num(r.committed_male) + '</td>' +
+        '<td class="ta-right">' + num(r.committed_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.committed_total) + '</strong></td>' +
+        '<td class="ta-right">' + num(r.released_male) + '</td>' +
+        '<td class="ta-right">' + num(r.released_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.released_total) + '</strong></td></tr>';
     });
 
-    html +=
-        '</tbody>' +
-        '<tfoot>' +
-          '<tr>' +
-            '<td><strong>TOTAL</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.committed_male) + '</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.committed_female) + '</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.committed_total) + '</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.released_male) + '</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.released_female) + '</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.released_total) + '</strong></td>' +
-          '</tr>' +
-        '</tfoot>' +
-      '</table>' +
-      '</div>';
+    html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
+      '<td class="ta-right">' + num(totals.committed_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.committed_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.committed_total) + '</td>' +
+      '<td class="ta-right">' + num(totals.released_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.released_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.released_total) + '</td>' +
+      '</tr></tfoot></table></div>';
 
     output.innerHTML = html;
   }
+
+  /* ============================================================
+     COMMITTED / RELEASED — by jail unit
+     ============================================================ */
+
+  function renderCommittedReleased(data) {
+    var rows   = data.rows   || [];
+    var totals = data.totals || {};
+
+    var html = renderReportHeader(data.meta);
+
+    if (!rows.length) {
+      output.innerHTML = html + '<div class="data-table__empty">No jail units found.</div>';
+      return;
+    }
+
+    html +=
+      '<div class="table-wrap report-table__wrap"><table class="report-table">' +
+        '<thead><tr>' +
+          '<th rowspan="2">Jail Unit</th>' +
+          '<th colspan="3" class="report-table__group">Committed</th>' +
+          '<th colspan="3" class="report-table__group">Released</th>' +
+          '<th rowspan="2" class="ta-right">Grand Total</th>' +
+        '</tr><tr>' +
+          '<th class="ta-right">M</th><th class="ta-right">F</th><th class="ta-right">Total</th>' +
+          '<th class="ta-right">M</th><th class="ta-right">F</th><th class="ta-right">Total</th>' +
+        '</tr></thead><tbody>';
+
+    rows.forEach(function (r) {
+      html += '<tr>' +
+        '<td>' + esc(r.jail_unit_name) + '<br><small class="meta-text">' + esc(r.dormitory) + '</small></td>' +
+        '<td class="ta-right">' + num(r.committed_male) + '</td>' +
+        '<td class="ta-right">' + num(r.committed_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.committed_total) + '</strong></td>' +
+        '<td class="ta-right">' + num(r.released_male) + '</td>' +
+        '<td class="ta-right">' + num(r.released_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.released_total) + '</strong></td>' +
+        '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
+        '</tr>';
+    });
+
+    html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
+      '<td class="ta-right">' + num(totals.committed_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.committed_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.committed_total) + '</td>' +
+      '<td class="ta-right">' + num(totals.released_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.released_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.released_total) + '</td>' +
+      '<td class="ta-right">' + num(totals.grand_total) + '</td>' +
+      '</tr></tfoot></table></div>';
+
+    output.innerHTML = html;
+  }
+
+  /* ============================================================
+     DRUG CASES — simple
+     ============================================================ */
 
   function renderDrugCases(data) {
     var rows   = data.rows   || [];
     var totals = data.totals || { male: 0, female: 0, total: 0 };
 
     var html = renderReportHeader(data.meta);
+    if (!rows.length) {
+      output.innerHTML = html + '<div class="data-table__empty">No drug-related PDL records.</div>';
+      return;
+    }
+
+    html +=
+      '<div class="table-wrap report-table__wrap"><table class="report-table">' +
+        '<thead><tr>' +
+          '<th rowspan="2">Classification</th>' +
+          '<th colspan="2" class="report-table__group">Sex</th>' +
+          '<th rowspan="2" class="ta-right">Total</th>' +
+        '</tr><tr>' +
+          '<th class="ta-right">Male</th><th class="ta-right">Female</th>' +
+        '</tr></thead><tbody>';
+
+    rows.forEach(function (r) {
+      html += '<tr><td>' + esc(r.classification) + '</td>' +
+        '<td class="ta-right">' + num(r.male) + '</td>' +
+        '<td class="ta-right">' + num(r.female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.total) + '</strong></td></tr>';
+    });
+
+    html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
+      '<td class="ta-right">' + num(totals.male) + '</td>' +
+      '<td class="ta-right">' + num(totals.female) + '</td>' +
+      '<td class="ta-right">' + num(totals.total) + '</td>' +
+      '</tr></tfoot></table></div>';
+
+    output.innerHTML = html;
+  }
+
+  /* ============================================================
+     DRUG CASES — detailed
+     ============================================================ */
+
+  function renderDrugCasesDetailed(data) {
+    var rows   = data.rows   || [];
+    var totals = data.totals || {};
+
+    var html = renderReportHeader(data.meta);
 
     if (!rows.length) {
-      output.innerHTML = html +
-        '<div class="data-table__empty">No drug-related PDL records.</div>';
+      output.innerHTML = html + '<div class="data-table__empty">No drug-related PDL records.</div>';
       return;
     }
 
     html +=
       '<div class="table-wrap report-table__wrap">' +
-      '<table class="report-table">' +
+      '<table class="report-table report-table--actual">' +
         '<thead>' +
           '<tr>' +
-            '<th rowspan="2">Classification</th>' +
-            '<th colspan="2" class="report-table__group">Sex</th>' +
-            '<th rowspan="2" class="ta-right">Total</th>' +
+            '<th rowspan="3">Classification</th>' +
+            '<th colspan="8">Sentenced</th>' +
+            '<th colspan="8">Awaiting / On Trial</th>' +
+            '<th rowspan="3">Total</th>' +
           '</tr>' +
           '<tr>' +
-            '<th class="ta-right">Male</th>' +
-            '<th class="ta-right">Female</th>' +
+            '<th colspan="4">R.A. 6425</th>' +
+            '<th colspan="4">R.A. 9165</th>' +
+            '<th colspan="4">R.A. 6425</th>' +
+            '<th colspan="4">R.A. 9165</th>' +
           '</tr>' +
-        '</thead>' +
-        '<tbody>';
+          '<tr>' +
+            '<th>Adult M</th><th>Adult F</th><th>CICL M</th><th>CICL F</th>' +
+            '<th>Adult M</th><th>Adult F</th><th>CICL M</th><th>CICL F</th>' +
+            '<th>Adult M</th><th>Adult F</th><th>CICL M</th><th>CICL F</th>' +
+            '<th>Adult M</th><th>Adult F</th><th>CICL M</th><th>CICL F</th>' +
+          '</tr>' +
+        '</thead><tbody>';
 
     rows.forEach(function (r) {
-      html +=
-        '<tr>' +
-          '<td>' + esc(r.classification) + '</td>' +
-          '<td class="ta-right">' + num(r.male) + '</td>' +
-          '<td class="ta-right">' + num(r.female) + '</td>' +
-          '<td class="ta-right"><strong>' + num(r.total) + '</strong></td>' +
+      html += '<tr>' +
+        '<td>' + esc(r.classification) + '</td>' +
+        '<td class="ta-right">' + num(r.r6425_adult_male) + '</td>' +
+        '<td class="ta-right">' + num(r.r6425_adult_female) + '</td>' +
+        '<td class="ta-right">' + num(r.r6425_cicl_male) + '</td>' +
+        '<td class="ta-right">' + num(r.r6425_cicl_female) + '</td>' +
+        '<td class="ta-right">' + num(r.r9165_adult_male) + '</td>' +
+        '<td class="ta-right">' + num(r.r9165_adult_female) + '</td>' +
+        '<td class="ta-right">' + num(r.r9165_cicl_male) + '</td>' +
+        '<td class="ta-right">' + num(r.r9165_cicl_female) + '</td>' +
+        '<td class="ta-right">' + num(r.at_r6425_adult_male) + '</td>' +
+        '<td class="ta-right">' + num(r.at_r6425_adult_female) + '</td>' +
+        '<td class="ta-right">' + num(r.at_r6425_cicl_male) + '</td>' +
+        '<td class="ta-right">' + num(r.at_r6425_cicl_female) + '</td>' +
+        '<td class="ta-right">' + num(r.at_r9165_adult_male) + '</td>' +
+        '<td class="ta-right">' + num(r.at_r9165_adult_female) + '</td>' +
+        '<td class="ta-right">' + num(r.at_r9165_cicl_male) + '</td>' +
+        '<td class="ta-right">' + num(r.at_r9165_cicl_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.total) + '</strong></td>' +
         '</tr>';
     });
 
+    html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>';
+    [
+      'r6425_adult_male','r6425_adult_female','r6425_cicl_male','r6425_cicl_female',
+      'r9165_adult_male','r9165_adult_female','r9165_cicl_male','r9165_cicl_female',
+      'at_r6425_adult_male','at_r6425_adult_female','at_r6425_cicl_male','at_r6425_cicl_female',
+      'at_r9165_adult_male','at_r9165_adult_female','at_r9165_cicl_male','at_r9165_cicl_female',
+      'total',
+    ].forEach(function (k) {
+      html += '<td class="ta-right">' + num(totals[k]) + '</td>';
+    });
+    html += '</tr></tfoot></table></div>';
+
+    output.innerHTML = html;
+  }
+
+  /* ============================================================
+     ACTUAL POPULATION
+     ============================================================ */
+
+  function renderActualPopulation(data) {
+    var rows   = data.rows   || [];
+    var totals = data.totals || {};
+    var pct    = data.percents;
+
+    var html = renderReportHeader(data.meta);
+    if (!rows.length) {
+      output.innerHTML = html + '<div class="data-table__empty">No records.</div>';
+      return;
+    }
+
     html +=
-        '</tbody>' +
-        '<tfoot>' +
+      '<div class="table-wrap report-table__wrap">' +
+      '<table class="report-table report-table--actual">' +
+        '<thead>' +
           '<tr>' +
-            '<td><strong>TOTAL</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.male) + '</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.female) + '</strong></td>' +
-            '<td class="ta-right"><strong>' + num(totals.total) + '</strong></td>' +
+            '<th rowspan="3">Municipality</th>' +
+            '<th colspan="2" rowspan="2">Detainee</th>' +
+            '<th rowspan="2">Total<br>Detainees</th>' +
+            '<th colspan="8">Sentenced</th>' +
+            '<th rowspan="2">Total<br>Sentenced</th>' +
+            '<th rowspan="2">Grand<br>Total</th>' +
           '</tr>' +
-        '</tfoot>' +
-      '</table>' +
-      '</div>';
+          '<tr>' +
+            '<th colspan="2">Municipal</th><th colspan="2">City</th>' +
+            '<th colspan="2">Provincial</th><th colspan="2">Insular</th>' +
+          '</tr>' +
+          '<tr>' +
+            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
+            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
+          '</tr>' +
+        '</thead><tbody>';
+
+    rows.forEach(function (r) {
+      html += '<tr>' +
+        '<td>' + esc(r.municipality) + '</td>' +
+        '<td class="ta-right">' + num(r.detainee_male) + '</td>' +
+        '<td class="ta-right">' + num(r.detainee_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.detainee_total) + '</strong></td>' +
+        '<td class="ta-right">' + num(r.municipal_male) + '</td>' +
+        '<td class="ta-right">' + num(r.municipal_female) + '</td>' +
+        '<td class="ta-right">' + num(r.city_male) + '</td>' +
+        '<td class="ta-right">' + num(r.city_female) + '</td>' +
+        '<td class="ta-right">' + num(r.provincial_male) + '</td>' +
+        '<td class="ta-right">' + num(r.provincial_female) + '</td>' +
+        '<td class="ta-right">' + num(r.insular_male) + '</td>' +
+        '<td class="ta-right">' + num(r.insular_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.sentenced_total) + '</strong></td>' +
+        '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
+        '</tr>';
+    });
+
+    html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
+      '<td class="ta-right">' + num(totals.detainee_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.detainee_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.detainee_total) + '</td>' +
+      '<td class="ta-right">' + num(totals.municipal_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.municipal_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.city_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.city_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.provincial_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.provincial_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.insular_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.insular_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.sentenced_total) + '</td>' +
+      '<td class="ta-right">' + num(totals.grand_total) + '</td>' +
+      '</tr></tfoot></table></div>';
+
+    if (pct && pct.detainee !== undefined) {
+      html += renderFooterText(
+        num(pct.detainee).toFixed(2) + '% Detainee · ' +
+        num(pct.sentenced).toFixed(2) + '% Sentenced'
+      );
+    }
+
+    output.innerHTML = html;
+  }
+
+  /* ============================================================
+     ESCORTS
+     ============================================================ */
+
+  function renderEscorts(data) {
+    var rows   = data.rows   || [];
+    var totals = data.totals || {};
+
+    var html = renderReportHeader(data.meta);
+    if (!rows.length) {
+      output.innerHTML = html + '<div class="data-table__empty">No escort records for this month.</div>';
+      return;
+    }
+
+    var purposes = [
+      { key: 'court',      label: 'Court' },
+      { key: 'hospital',   label: 'Hospital' },
+      { key: 'drug_exam',  label: 'Drug Exam' },
+      { key: 'rehab',      label: 'Rehab' },
+      { key: 'inquest',    label: 'Inquest' },
+      { key: 'transfer',   label: 'Transfer' },
+      { key: 'visitation', label: 'Visitation' },
+      { key: 'other',      label: 'Other' },
+    ];
+
+    html += '<div class="table-wrap report-table__wrap">' +
+      '<table class="report-table report-table--actual"><thead>' +
+      '<tr><th rowspan="2">Municipality</th>';
+    purposes.forEach(function (p) {
+      html += '<th colspan="2">' + esc(p.label) + '</th>';
+    });
+    html += '<th rowspan="2" class="ta-right">Total</th></tr><tr>';
+    purposes.forEach(function () {
+      html += '<th>M</th><th>F</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    rows.forEach(function (r) {
+      html += '<tr><td>' + esc(r.municipality) + '</td>';
+      purposes.forEach(function (p) {
+        html += '<td class="ta-right">' + num(r[p.key + '_male']) + '</td>' +
+                '<td class="ta-right">' + num(r[p.key + '_female']) + '</td>';
+      });
+      html += '<td class="ta-right"><strong>' + num(r.total) + '</strong></td></tr>';
+    });
+
+    html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>';
+    purposes.forEach(function (p) {
+      html += '<td class="ta-right">' + num(totals[p.key + '_male']) + '</td>' +
+              '<td class="ta-right">' + num(totals[p.key + '_female']) + '</td>';
+    });
+    html += '<td class="ta-right">' + num(totals.total) + '</td></tr></tfoot></table></div>';
 
     output.innerHTML = html;
   }
@@ -280,23 +566,32 @@
      ============================================================ */
 
   function load() {
-    var action = currentReport;
     var params = {};
-
-    if (currentReport === 'flow') {
+    var needsMonth = (
+      currentReport === 'flow' ||
+      currentReport === 'committed-released' ||
+      currentReport === 'escorts'
+    );
+    if (needsMonth) {
       params.month = monthInput ? monthInput.value : '';
     }
-
     if (monthInput) {
-      monthInput.hidden = (currentReport !== 'flow');
+      monthInput.hidden = !needsMonth;
     }
 
     showLoading();
 
-    api(action, params).then(function (data) {
-      if (currentReport === 'population')      renderPopulation(data);
-      else if (currentReport === 'flow')       renderFlow(data);
-      else if (currentReport === 'drug-cases') renderDrugCases(data);
+    api(currentReport, params).then(function (data) {
+      switch (currentReport) {
+        case 'population':          renderPopulation(data);       break;
+        case 'population-detailed': renderPopulationDetailed(data); break;
+        case 'flow':                renderFlow(data);             break;
+        case 'committed-released':  renderCommittedReleased(data); break;
+        case 'drug-cases':          renderDrugCases(data);        break;
+        case 'drug-cases-detailed': renderDrugCasesDetailed(data); break;
+        case 'actual-population':   renderActualPopulation(data); break;
+        case 'escorts':             renderEscorts(data);          break;
+      }
       lastLoaded = true;
     }).catch(function (err) {
       showError(err.message);
@@ -312,39 +607,25 @@
       tabs.forEach(function (t) { t.classList.remove('is-active'); });
       tab.classList.add('is-active');
 
-      currentReport = tab.dataset.report || 'population';
+      currentReport = tab.dataset.report || 'actual-population';
       load();
     });
   });
 
-  /* ============================================================
-     MONTH PICKER
-     ============================================================ */
-
   if (monthInput) {
-    monthInput.addEventListener('change', function () {
-      if (currentReport === 'flow') load();
-    });
+    monthInput.addEventListener('change', function () { load(); });
   }
-
-  /* ============================================================
-     EXPORT
-     ============================================================ */
 
   if (exportBtn) {
     exportBtn.addEventListener('click', function () {
       var params = new URLSearchParams();
       params.set('report', currentReport);
-      if (currentReport === 'flow' && monthInput) {
+      if ((currentReport === 'flow' || currentReport === 'committed-released' || currentReport === 'escorts') && monthInput) {
         params.set('month', monthInput.value);
       }
       window.location.href = 'index.php?route=report&action=export&' + params.toString();
     });
   }
-
-  /* ============================================================
-     SECTION ENTRY / EVENT LISTENERS
-     ============================================================ */
 
   document.addEventListener('section:changed', function (e) {
     if (e.detail && e.detail.section === 'reports') {
@@ -352,9 +633,7 @@
     }
   });
 
-  if (section.classList.contains('is-visible')) {
-    load();
-  }
+  if (section.classList.contains('is-visible')) load();
 
   if (monthInput && !monthInput.value) {
     var now = new Date();

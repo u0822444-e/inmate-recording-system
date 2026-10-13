@@ -9,6 +9,9 @@ use App\Controllers\ReferenceController;
 use App\Controllers\ReportController;
 use App\Controllers\UserController;
 use App\Controllers\ProfileController;
+use App\Controllers\VisitorController;
+use App\Controllers\IncidentController;
+use App\Controllers\HeadcountController;
 use App\Services\Auth;
 
 /* ----------------------------------------------------------
@@ -36,6 +39,12 @@ require_once __DIR__ . '/../app/controllers/InmateController.php';
 require_once __DIR__ . '/../app/controllers/JailUnitController.php';
 require_once __DIR__ . '/../app/controllers/ReportController.php';
 require_once __DIR__ . '/../app/controllers/ProfileController.php';
+require_once __DIR__ . '/../app/models/Visitor.php';
+require_once __DIR__ . '/../app/controllers/VisitorController.php';
+require_once __DIR__ . '/../app/models/Incident.php';
+require_once __DIR__ . '/../app/controllers/IncidentController.php';
+require_once __DIR__ . '/../app/models/Headcount.php';
+require_once __DIR__ . '/../app/controllers/HeadcountController.php';
 
 Auth::start();
 
@@ -103,6 +112,21 @@ if ($route === 'logout') {
 
 if ($route === 'profile') {
     (new ProfileController($db))->handle($action);
+    exit;
+}
+
+if ($route === 'visitors') {
+    (new VisitorController($db))->handle($action);
+    exit;
+}
+
+if ($route === 'incidents') {
+    (new IncidentController($db))->handle($action);
+    exit;
+}
+
+if ($route === 'headcount') {
+    (new HeadcountController($db))->handle($action);
     exit;
 }
 

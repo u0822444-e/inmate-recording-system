@@ -20,6 +20,7 @@
   var detailModal    = document.getElementById('inmateModal');
   var detailBody     = document.getElementById('inmateDetailBody');
   var headerNumber   = document.getElementById('inmateHeaderNumber');
+  var detailTabs     = detailModal ? detailModal.querySelectorAll('.detail-tab') : null;
 
   /* ---------- Edit modal ---------- */
   var editModal       = document.getElementById('inmateEditModal');
@@ -243,13 +244,6 @@
     return (a + b).toUpperCase() || '?';
   }
 
-  function addressLine(row) {
-    var parts = [];
-    if (row.barangay_name)     parts.push(row.barangay_name);
-    if (row.municipality_name) parts.push(row.municipality_name);
-    return parts.length ? parts.join(', ') : '—';
-  }
-
   function toDateInput(iso) {
     if (!iso) return '';
     return String(iso).slice(0, 10);
@@ -441,12 +435,12 @@
   }
 
   /* ============================================================
-     TABLE RENDER
+     TABLE RENDER — 5 columns
      ============================================================ */
 
   function renderTable() {
     if (!inmates.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="data-table__empty">No inmate records found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="data-table__empty">No inmate records found.</td></tr>';
       return;
     }
 
@@ -470,7 +464,6 @@
 
       return '<tr data-id="' + i.id + '">' +
         '<td><code class="mono-badge">' + esc(i.inmate_number) + '</code></td>' +
-        '<td class="meta-text">' + esc(i.jail_unit_name || '—') + '</td>' +
         '<td>' +
           '<div class="cell-name">' +
             '<span class="cell-avatar">' + esc(initialsFrom(i)) + '</span>' +
@@ -483,11 +476,9 @@
         '<td>' + esc(i.offense_name || '—') +
           (i.offense_code ? '<br><small class="meta-text">' + esc(i.offense_code) + '</small>' : '') +
         '</td>' +
-        '<td class="meta-text">' + esc(addressLine(i)) + '</td>' +
         '<td><span class="status-pill ' + statusClass(i.custody_status) + '">' +
           esc(i.custody_status) +
         '</span></td>' +
-        '<td>' + esc(formatDate(i.admission_date)) + '</td>' +
         '<td class="ta-right"><div class="row-actions">' +
           '<button type="button" class="icon-btn" data-action="view" title="View details">' +
             '<i class="bi bi-eye"></i>' +
@@ -521,7 +512,7 @@
   function load(force) {
     if (loaded && !force) return;
 
-    tbody.innerHTML = '<tr><td colspan="8" class="data-table__empty">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="data-table__empty">Loading...</td></tr>';
 
     var params = {
       q:               search ? search.value.trim() : '',
@@ -542,29 +533,48 @@
       renderTable();
       renderPagination();
     }).catch(function (err) {
-      tbody.innerHTML = '<tr><td colspan="8" class="data-table__empty">' + esc(err.message) + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="data-table__empty">' + esc(err.message) + '</td></tr>';
       if (summary) summary.textContent = '';
     });
   }
 
   /* ============================================================
-     DETAIL MODAL
+     DETAIL MODAL — TABBED
      ============================================================ */
 
-  function detailItem(icon, label, value, wide) {
+  function detailItem(label, value, wide) {
     return '<div class="detail-row' + (wide ? ' detail-row--wide' : '') + '">' +
       '<span class="detail-row__label">' + esc(label) + '</span>' +
       '<span class="detail-row__value">' + esc(orDash(value)) + '</span>' +
     '</div>';
   }
 
-  function detailSection(icon, title, rowsHtml) {
-    return '<section class="detail-section">' +
-      '<header class="detail-section__header">' +
-        '<h3>' + esc(title) + '</h3>' +
-      '</header>' +
-      '<div class="detail-section__body">' + rowsHtml + '</div>' +
-    '</section>';
+  function detailPanel(rowsHtml) {
+    return '<div class="detail-panel">' + rowsHtml + '</div>';
+  }
+
+  var detailPanes = {};
+
+  function switchDetailTab(tab) {
+    if (!detailTabs) return;
+
+    detailTabs.forEach(function (btn) {
+      var on = btn.dataset.tab === tab;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+
+    Object.keys(detailPanes).forEach(function (key) {
+      detailPanes[key].classList.toggle('is-active', key === tab);
+    });
+  }
+
+  if (detailTabs) {
+    detailTabs.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        switchDetailTab(btn.dataset.tab);
+      });
+    });
   }
 
   function openDetail(id) {
@@ -602,7 +612,8 @@
 
       var isCustody = i.custody_status === 'In Custody';
 
-      var header =
+      /* ---------- HERO (always visible above tabs) ---------- */
+      var hero =
         '<div class="detail-hero">' +
           '<div class="detail-hero__avatar">' + esc(initialsFrom(i)) + '</div>' +
           '<div class="detail-hero__info">' +
@@ -614,52 +625,66 @@
           '</span>' +
         '</div>';
 
-      var identification =
-        detailItem('', 'Inmate No.', i.inmate_number) +
-        detailItem('', 'Case Reference', i.case_reference) +
-        detailItem('', 'Jail Unit', i.jail_unit_name);
+      /* ---------- TAB CONTENT ---------- */
 
-      var personal =
-        detailItem('', 'Full Name', fullName) +
-        detailItem('', 'Sex', i.sex) +
-        detailItem('', 'Date of Birth', formatDate(i.date_of_birth)) +
-        detailItem('', 'Civil Status', i.civil_status);
+      // Overview
+      var overviewRows =
+        detailItem('Jail Unit', i.jail_unit_name) +
+        detailItem('Inmate No.', i.inmate_number) +
+        detailItem('Offense', (i.offense_name || '—') + (i.offense_code ? ' (' + i.offense_code + ')' : '')) +
+        detailItem('Classification', i.classification) +
+        detailItem('Custody Status', i.custody_status) +
+        detailItem('Admitted', formatDate(i.admission_date));
 
-      var addressHtml =
-        detailItem('', 'Municipality', i.municipality_name) +
-        detailItem('', 'Barangay', i.barangay_name);
+      // Personal
+      var personalRows =
+        detailItem('Full Name', fullName, true) +
+        detailItem('Sex', i.sex) +
+        detailItem('Date of Birth', formatDate(i.date_of_birth)) +
+        detailItem('Civil Status', i.civil_status) +
+        detailItem('Municipality', i.municipality_name) +
+        detailItem('Barangay', i.barangay_name);
 
-      var offenseText = (i.offense_name || '') +
-        (i.offense_code ? ' (' + i.offense_code + ')' : '');
-      if (!offenseText) offenseText = '—';
+      // Case
+      var offenseText = (i.offense_name || '') + (i.offense_code ? ' (' + i.offense_code + ')' : '');
+      var caseRows =
+        detailItem('Offense', offenseText || '—', true) +
+        detailItem('Drug-related', (parseInt(i.is_drug_case || 0, 10) === 1) ? 'Yes' : 'No') +
+        detailItem('Committed', formatDate(i.committed_at)) +
+        detailItem('Sentence', i.sentence, true) +
+        detailItem('Years Range', years) +
+        detailItem('Case Reference', i.case_reference);
 
-      var caseHtml =
-        detailItem('', 'Offense', offenseText, true) +
-        detailItem('', 'Sentence', i.sentence, true) +
-        detailItem('', 'Years Range', years);
+      // Custody
+      var custodyRows =
+        detailItem('Custody Status', i.custody_status) +
+        detailItem('Admission Date', formatDate(i.admission_date)) +
+        detailItem('Classification', i.classification) +
+        detailItem('Employee No.', i.employee_no);
 
-      var complianceHtml =
-        detailItem('', 'Classification', i.classification) +
-        detailItem('', 'Drug-related case', (parseInt(i.is_drug_case || 0, 10) === 1) ? 'Yes' : 'No') +
-        detailItem('', 'Committed', formatDate(i.committed_at));
-
-      var custodyHtml =
-        detailItem('', 'Admission Date', formatDate(i.admission_date)) +
-        detailItem('', 'Custody Status', i.custody_status);
-
+      // Notes (shown under Personal tab)
       var notes = i.notes
-        ? detailItem('', 'Notes', i.notes, true)
+        ? '<div class="detail-notes">' +
+            '<span class="detail-row__label">Notes</span>' +
+            '<p>' + esc(i.notes) + '</p>' +
+          '</div>'
         : '';
 
       detailBody.innerHTML =
-        header +
-        detailSection('', 'Identification', identification) +
-        detailSection('', 'Personal Information', personal) +
-        detailSection('', 'Address', addressHtml) +
-        detailSection('', 'Case Information', caseHtml) +
-        detailSection('', 'Compliance', complianceHtml) +
-        detailSection('', 'Custody', custodyHtml) +
-        (notes ? detailSection('', 'Notes', notes) : '');
+        hero +
+        '<div class="detail-pane is-active" data-pane="overview">' + detailPanel(overviewRows) + '</div>' +
+        '<div class="detail-pane" data-pane="personal">' + detailPanel(personalRows) + notes + '</div>' +
+        '<div class="detail-pane" data-pane="case">' + detailPanel(caseRows) + '</div>' +
+        '<div class="detail-pane" data-pane="custody">' + detailPanel(custodyRows) + '</div>';
+
+      // Cache pane references for switching
+      detailPanes = {};
+      detailBody.querySelectorAll('.detail-pane').forEach(function (pane) {
+        detailPanes[pane.dataset.pane] = pane;
+      });
+
+      // Always open on Overview
+      switchDetailTab('overview');
     }).catch(function (err) {
       detailBody.innerHTML = '<div class="data-table__empty">' + esc(err.message) + '</div>';
     });

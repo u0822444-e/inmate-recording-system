@@ -12,5 +12,8 @@ declare(strict_types=1);
 <script src="assets/js/reports.js" defer></script>
 <script src="assets/js/auth.js" defer></script>
 <script src="assets/js/profile.js" defer></script>
+<script src="assets/js/visitors.js" defer></script>
+<script src="assets/js/incidents.js" defer></script>
+<script src="assets/js/headcount.js" defer></script>
 </body>
 </html>

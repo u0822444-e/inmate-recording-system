@@ -67,22 +67,19 @@ $isAdmin = Auth::isAdmin();
         </div>
 
         <div class="table-wrap">
-            <table class="data-table">
+            <table class="data-table data-table--compact">
                 <thead>
                     <tr>
                         <th>Inmate No.</th>
-                        <th>Jail Unit</th>
                         <th>Name</th>
                         <th>Offense</th>
-                        <th>Address</th>
                         <th>Status</th>
-                        <th>Admitted</th>
                         <th class="ta-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="inmateTableBody">
                     <tr>
-                        <td colspan="8" class="data-table__empty">Loading...</td>
+                        <td colspan="5" class="data-table__empty">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -104,7 +101,7 @@ $isAdmin = Auth::isAdmin();
 </section>
 
 <!-- ============================================================
-     INMATE DETAIL MODAL
+     INMATE DETAIL MODAL — TABBED
      ============================================================ -->
 <div class="modal-backdrop is-hidden" id="inmateModal">
     <div class="dj-modal dj-modal--wide" role="dialog" aria-modal="true" aria-labelledby="inmateModalTitle">
@@ -117,6 +114,14 @@ $isAdmin = Auth::isAdmin();
                 <i class="bi bi-x-lg"></i>
             </button>
         </header>
+
+        <!-- Tab nav -->
+        <nav class="detail-tabs" role="tablist">
+            <button type="button" class="detail-tab is-active" data-tab="overview" role="tab">Overview</button>
+            <button type="button" class="detail-tab" data-tab="personal" role="tab">Personal</button>
+            <button type="button" class="detail-tab" data-tab="case" role="tab">Case</button>
+            <button type="button" class="detail-tab" data-tab="custody" role="tab">Custody</button>
+        </nav>
 
         <div class="dj-modal__body" id="inmateDetailBody">
             <div class="data-table__empty">Loading...</div>

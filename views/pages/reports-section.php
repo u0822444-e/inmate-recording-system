@@ -11,7 +11,7 @@ $isReportsActive = ($currentSection ?? '') === 'reports';
     <header class="section-header">
         <div>
             <h1>Reports</h1>
-            <p>Generate BJMP-compliant reports for Ipil District Jail.</p>
+            <p>Generate BJMP-compliant reports for Zamboanga Sibugay.</p>
         </div>
         <div class="section-header__tools">
             <input type="month" id="reportMonth" class="input-select"
@@ -23,14 +23,20 @@ $isReportsActive = ($currentSection ?? '') === 'reports';
     </header>
 
     <div class="report-tabs" role="tablist">
-        <button type="button" class="report-tab is-active" data-report="population" role="tab">
-            Population Snapshot
+        <button type="button" class="report-tab is-active" data-report="actual-population" role="tab">
+            Actual Population
         </button>
-        <button type="button" class="report-tab" data-report="flow" role="tab">
+        <button type="button" class="report-tab" data-report="population-detailed" role="tab">
+            Population Detailed
+        </button>
+        <button type="button" class="report-tab" data-report="committed-released" role="tab">
             Committed / Released
         </button>
-        <button type="button" class="report-tab" data-report="drug-cases" role="tab">
+        <button type="button" class="report-tab" data-report="drug-cases-detailed" role="tab">
             Drug Cases
+        </button>
+        <button type="button" class="report-tab" data-report="escorts" role="tab">
+            Escorted PDL
         </button>
     </div>
 

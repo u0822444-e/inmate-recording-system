@@ -22,3 +22,5 @@ public_html/assets/uploads/
 # Composer / node (if you ever add them)
 vendor/
 node_modules/
+# Database dumps and exports (contain sensitive data)
+*.sql

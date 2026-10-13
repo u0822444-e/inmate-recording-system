@@ -1248,3 +1248,117 @@ body.modal-open { overflow: hidden; }
   padding-left: 0.85rem;
   font-size: 0.79rem;
 }
+
+/* ============================================================
+   COMPACT TABLE — 48–52px rows
+   ============================================================ */
+
+.data-table--compact tbody td {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  height: 48px;
+  vertical-align: middle;
+}
+
+.data-table--compact thead th {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.data-table--compact .cell-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.68rem;
+}
+
+.data-table--compact .cell-name {
+  gap: 0.5rem;
+}
+
+.data-table--compact .icon-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.data-table--compact .icon-btn i {
+  font-size: 0.78rem;
+}
+
+/* ============================================================
+   DETAIL MODAL — TABBED LAYOUT
+   ============================================================ */
+
+/* Tab bar under the modal header */
+.detail-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border);
+  background: #fafbfd;
+  overflow-x: auto;
+}
+
+.detail-tab {
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.detail-tab:hover {
+  color: var(--primary);
+}
+
+.detail-tab.is-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Panes */
+.detail-pane {
+  display: none;
+  animation: fadeIn 0.15s ease;
+}
+
+.detail-pane.is-active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Detail body inside tabbed modal — no scroll if content fits */
+#inmateModal .dj-modal__body {
+  gap: 0.85rem;
+  overflow-y: auto;
+}
+
+/* Notes block below a pane */
+.detail-notes {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #f7f9fc;
+}
+
+.detail-notes .detail-row__label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.detail-notes p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}

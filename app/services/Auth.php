@@ -37,11 +37,24 @@ class Auth
     public static function user(): array
     {
         return [
-            'id'        => (int) ($_SESSION['user_id'] ?? 0),
-            'username'  => (string) ($_SESSION['username'] ?? ''),
-            'role'      => (string) ($_SESSION['role'] ?? ''),
-            'full_name' => (string) ($_SESSION['full_name'] ?? ''),
+            'id'           => (int) ($_SESSION['user_id'] ?? 0),
+            'username'     => (string) ($_SESSION['username'] ?? ''),
+            'role'         => (string) ($_SESSION['role'] ?? ''),
+            'full_name'    => (string) ($_SESSION['full_name'] ?? ''),
+            'jail_unit_id' => isset($_SESSION['jail_unit_id']) && $_SESSION['jail_unit_id'] !== null
+                                ? (int) $_SESSION['jail_unit_id']
+                                : null,
         ];
+    }
+
+    /**
+     * Returns the current user's assigned jail unit ID, or null if unassigned.
+     * Used to auto-scope records for staff/officers.
+     */
+    public static function jailUnitId(): ?int
+    {
+        $id = $_SESSION['jail_unit_id'] ?? null;
+        return ($id !== null && (int) $id > 0) ? (int) $id : null;
     }
 
     public static function login(array $user): void
@@ -57,6 +70,9 @@ class Auth
         $_SESSION['username']      = $user['username'];
         $_SESSION['role']          = $user['role'];
         $_SESSION['full_name']     = $user['full_name'] ?? '';
+        $_SESSION['jail_unit_id']  = isset($user['jail_unit_id']) && $user['jail_unit_id'] !== null
+                                        ? (int) $user['jail_unit_id']
+                                        : null;
     }
 
     public static function logout(): void
