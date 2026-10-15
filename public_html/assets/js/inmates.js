@@ -90,7 +90,10 @@
   var sentenceBadge  = document.getElementById('sentenceBadge');
   var sentenceReset  = document.getElementById('sentenceResetBtn');
 
+  // Cached auto values so the reset button can restore them
   var lastAutoSentence = null;
+  var lastAutoMin      = null;
+  var lastAutoMax      = null;
 
   function applyAutoSentence(offense) {
     if (!offense) {
@@ -98,6 +101,8 @@
       sentenceMin.value = '';
       sentenceMax.value = '';
       lastAutoSentence = null;
+      lastAutoMin = null;
+      lastAutoMax = null;
       sentenceManual.value = '0';
       updateSentenceBadge();
       return;
@@ -120,6 +125,8 @@
     sentenceMax.value = hasMax ? offense.max_years : '';
 
     lastAutoSentence = text;
+    lastAutoMin = hasMin ? offense.min_years : null;
+    lastAutoMax = hasMax ? offense.max_years : null;
     sentenceManual.value = '0';
     updateSentenceBadge();
   }
@@ -151,11 +158,30 @@
     });
   }
 
+  // NEW: min/max input flips the sentence to "manual"
+  if (sentenceMin) {
+    sentenceMin.addEventListener('input', function () {
+      sentenceManual.value = '1';
+      updateSentenceBadge();
+    });
+  }
+
+  if (sentenceMax) {
+    sentenceMax.addEventListener('input', function () {
+      sentenceManual.value = '1';
+      updateSentenceBadge();
+    });
+  }
+
   if (sentenceReset) {
     sentenceReset.addEventListener('click', function () {
       if (lastAutoSentence !== null) {
         sentenceInput.value = lastAutoSentence;
         sentenceManual.value = '0';
+        if (lastAutoMin !== null) sentenceMin.value = lastAutoMin;
+        else sentenceMin.value = '';
+        if (lastAutoMax !== null) sentenceMax.value = lastAutoMax;
+        else sentenceMax.value = '';
         updateSentenceBadge();
       }
     });
@@ -319,6 +345,15 @@
       return;
     }
 
+    // NEW: validate min ≤ max when both are provided
+    var minVal = parseFloat(payload.sentence_years_min);
+    var maxVal = parseFloat(payload.sentence_years_max);
+    if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) {
+      errorBox.textContent = 'Minimum years cannot be greater than maximum years.';
+      errorBox.hidden = false;
+      return;
+    }
+
     var fullName = (payload.first_name + ' ' + payload.last_name).trim();
     var confirmed = await window.confirmDialog({
       title: 'Save Inmate Record',
@@ -370,6 +405,9 @@
       sentenceMin.value = '';
       sentenceMax.value = '';
       sentenceManual.value = '0';
+      lastAutoSentence = null;
+      lastAutoMin = null;
+      lastAutoMax = null;
       updateSentenceBadge();
 
       loadNextPdl();

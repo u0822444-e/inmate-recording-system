@@ -175,7 +175,11 @@
   var loaded  = false;
   var offenseFilterLoaded = false;
   var jailUnitFilterLoaded = false;
+
+  // Cached auto values so the reset button can restore them
   var editLastAutoSentence = null;
+  var editLastAutoMin      = null;
+  var editLastAutoMax      = null;
 
   /* ============================================================
      HELPERS
@@ -367,6 +371,8 @@
       editSentenceMin.value = '';
       editSentenceMax.value = '';
       editLastAutoSentence = null;
+      editLastAutoMin = null;
+      editLastAutoMax = null;
       editSentenceManual.value = '0';
       updateEditSentenceBadge();
       return;
@@ -389,6 +395,8 @@
     editSentenceMax.value = hasMax ? offense.max_years : '';
 
     editLastAutoSentence = text;
+    editLastAutoMin = hasMin ? offense.min_years : null;
+    editLastAutoMax = hasMax ? offense.max_years : null;
     editSentenceManual.value = '0';
     updateEditSentenceBadge();
   }
@@ -424,18 +432,37 @@
     });
   }
 
+  // NEW: min/max input flips the sentence to "manual"
+  if (editSentenceMin) {
+    editSentenceMin.addEventListener('input', function () {
+      editSentenceManual.value = '1';
+      updateEditSentenceBadge();
+    });
+  }
+
+  if (editSentenceMax) {
+    editSentenceMax.addEventListener('input', function () {
+      editSentenceManual.value = '1';
+      updateEditSentenceBadge();
+    });
+  }
+
   if (editSentenceReset) {
     editSentenceReset.addEventListener('click', function () {
       if (editLastAutoSentence !== null) {
         editSentence.value = editLastAutoSentence;
         editSentenceManual.value = '0';
+        if (editLastAutoMin !== null) editSentenceMin.value = editLastAutoMin;
+        else editSentenceMin.value = '';
+        if (editLastAutoMax !== null) editSentenceMax.value = editLastAutoMax;
+        else editSentenceMax.value = '';
         updateEditSentenceBadge();
       }
     });
   }
 
   /* ============================================================
-     TABLE RENDER — 5 columns
+     TABLE RENDER — 5 columns, no release button
      ============================================================ */
 
   function renderTable() {
@@ -445,15 +472,7 @@
     }
 
     tbody.innerHTML = inmates.map(function (i) {
-      var isReleased    = i.custody_status === 'Released';
-      var isTransferred = i.custody_status === 'Transferred';
-
-      var releaseBtn = (isAdmin && !isReleased && !isTransferred)
-        ? '<button type="button" class="icon-btn icon-btn--release" data-action="release" title="Release inmate">' +
-            '<i class="bi bi-box-arrow-up"></i>' +
-          '</button>'
-        : '';
-
+      var isReleased = i.custody_status === 'Released';
       var canEdit = !isReleased || isAdmin;
 
       var editBtn = canEdit
@@ -484,7 +503,6 @@
             '<i class="bi bi-eye"></i>' +
           '</button>' +
           editBtn +
-          releaseBtn +
         '</div></td>' +
       '</tr>';
     }).join('');
@@ -612,7 +630,6 @@
 
       var isCustody = i.custody_status === 'In Custody';
 
-      /* ---------- HERO (always visible above tabs) ---------- */
       var hero =
         '<div class="detail-hero">' +
           '<div class="detail-hero__avatar">' + esc(initialsFrom(i)) + '</div>' +
@@ -625,9 +642,6 @@
           '</span>' +
         '</div>';
 
-      /* ---------- TAB CONTENT ---------- */
-
-      // Overview
       var overviewRows =
         detailItem('Jail Unit', i.jail_unit_name) +
         detailItem('Inmate No.', i.inmate_number) +
@@ -636,7 +650,6 @@
         detailItem('Custody Status', i.custody_status) +
         detailItem('Admitted', formatDate(i.admission_date));
 
-      // Personal
       var personalRows =
         detailItem('Full Name', fullName, true) +
         detailItem('Sex', i.sex) +
@@ -645,7 +658,6 @@
         detailItem('Municipality', i.municipality_name) +
         detailItem('Barangay', i.barangay_name);
 
-      // Case
       var offenseText = (i.offense_name || '') + (i.offense_code ? ' (' + i.offense_code + ')' : '');
       var caseRows =
         detailItem('Offense', offenseText || '—', true) +
@@ -655,14 +667,12 @@
         detailItem('Years Range', years) +
         detailItem('Case Reference', i.case_reference);
 
-      // Custody
       var custodyRows =
         detailItem('Custody Status', i.custody_status) +
         detailItem('Admission Date', formatDate(i.admission_date)) +
         detailItem('Classification', i.classification) +
         detailItem('Employee No.', i.employee_no);
 
-      // Notes (shown under Personal tab)
       var notes = i.notes
         ? '<div class="detail-notes">' +
             '<span class="detail-row__label">Notes</span>' +
@@ -677,13 +687,11 @@
         '<div class="detail-pane" data-pane="case">' + detailPanel(caseRows) + '</div>' +
         '<div class="detail-pane" data-pane="custody">' + detailPanel(custodyRows) + '</div>';
 
-      // Cache pane references for switching
       detailPanes = {};
       detailBody.querySelectorAll('.detail-pane').forEach(function (pane) {
         detailPanes[pane.dataset.pane] = pane;
       });
 
-      // Always open on Overview
       switchDetailTab('overview');
     }).catch(function (err) {
       detailBody.innerHTML = '<div class="data-table__empty">' + esc(err.message) + '</div>';
@@ -735,6 +743,8 @@
 
     editSentenceManual.value = '0';
     editLastAutoSentence = null;
+    editLastAutoMin = null;
+    editLastAutoMax = null;
 
     editModal.classList.remove('is-hidden');
     document.body.classList.add('modal-open');
@@ -773,9 +783,13 @@
       if (i.sentence_is_manual) {
         editSentenceManual.value = '1';
         editLastAutoSentence = null;
+        editLastAutoMin = null;
+        editLastAutoMax = null;
       } else {
         editSentenceManual.value = '0';
         editLastAutoSentence = i.sentence || null;
+        editLastAutoMin = i.sentence_years_min;
+        editLastAutoMax = i.sentence_years_max;
       }
       updateEditSentenceBadge();
 
@@ -928,6 +942,15 @@
         return;
       }
 
+      // NEW: validate min ≤ max when both are provided
+      var minVal = parseFloat(payload.sentence_years_min);
+      var maxVal = parseFloat(payload.sentence_years_max);
+      if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) {
+        editError.textContent = 'Minimum years cannot be greater than maximum years.';
+        editError.hidden = false;
+        return;
+      }
+
       var fullName = (payload.first_name + ' ' + payload.last_name).trim();
       var confirmed = await window.confirmDialog({
         title: 'Save Changes',
@@ -961,46 +984,6 @@
         editSaveBtn.textContent = 'Save Changes';
       });
     });
-  }
-
-  /* ============================================================
-     RELEASE ACTION
-     ============================================================ */
-
-  async function handleRelease(id) {
-    var inmate = inmates.find(function (x) { return x.id === id; });
-    if (!inmate) return;
-
-    var name = inmate.full_name || inmate.inmate_number;
-
-    var ok = await window.confirmDialog({
-      title: 'Release Inmate',
-      message: 'Release "' + name + '" (' + inmate.inmate_number + ')?\n\n' +
-               'This will set the custody status to Released.',
-      confirmLabel: 'Release',
-      variant: 'warning'
-    });
-    if (!ok) return;
-
-    try {
-      var res = await fetch('index.php?route=inmates&action=release', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ id: id })
-      });
-      var data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.message || 'Error');
-
-      window.showSuccess({
-        title: 'Inmate Released',
-        message: name + ' has been released.'
-      });
-
-      load(true);
-    } catch (err) {
-      alert(err.message || 'Unable to release inmate.');
-    }
   }
 
   /* ============================================================
@@ -1057,17 +1040,15 @@
 
   if (tbody) {
     tbody.addEventListener('click', function (e) {
-      var viewBtn    = e.target.closest('button[data-action="view"]');
-      var editBtn    = e.target.closest('button[data-action="edit"]');
-      var releaseBtn = e.target.closest('button[data-action="release"]');
-      var row        = e.target.closest('tr');
+      var viewBtn = e.target.closest('button[data-action="view"]');
+      var editBtn = e.target.closest('button[data-action="edit"]');
+      var row     = e.target.closest('tr');
 
       if (!row) return;
       var id = Number(row.dataset.id);
 
       if (viewBtn) { openDetail(id); return; }
       if (editBtn) { openEdit(id); return; }
-      if (releaseBtn) { handleRelease(id); return; }
     });
   }
 

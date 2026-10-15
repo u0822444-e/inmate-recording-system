@@ -1168,3 +1168,70 @@
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ============================================================
+   CHART GRIDS
+   ============================================================ */
+
+.chart-grid {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.chart-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.chart-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 991px) {
+    .chart-grid--2,
+    .chart-grid--3 { grid-template-columns: 1fr; }
+}
+
+.chart-container {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+    padding: 0.5rem 0.75rem 0.75rem;
+}
+
+.chart-container canvas {
+    width: 100% !important;
+    height: auto !important;
+}
+
+/* ============================================================
+   COMPLIANCE PROGRESS BARS
+   ============================================================ */
+
+.compliance-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 0.75rem;
+}
+
+.compliance-row__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.35rem;
+    font-size: 0.85rem;
+}
+
+.compliance-bar {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.compliance-bar__fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    transition: width 400ms ease;
+}
+
+.compliance-bar__fill.is-complete { background: #16a34a; }
+.compliance-bar__fill.is-partial  { background: #f59e0b; }
+.compliance-bar__fill.is-low      { background: #dc2626; }
