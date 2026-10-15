@@ -23,7 +23,6 @@ class InmateController
             case 'get':     $this->get();     break;
             case 'update':  $this->update();  break;
             case 'export':  $this->exportCsv(); break;
-            case 'release': $this->release(); break;
             default:        Response::json(false, 'Unsupported request.');
         }
     }
@@ -70,6 +69,8 @@ class InmateController
         if ($inmateNumber === '') {
             Response::json(false, 'Inmate number is missing.');
         }
+        // Keep 'Released' allowed so historic records created before this
+        // change still validate cleanly if they are ever re-saved.
         if (!in_array($custodyStatus, ['In Custody', 'Released', 'Transferred'], true)) {
             $custodyStatus = 'In Custody';
         }
@@ -78,9 +79,6 @@ class InmateController
         }
         if ($classification !== null && !in_array($classification, ['Detainee', 'Sentenced', 'Awaiting Trial'], true)) {
             $classification = null;
-        }
-        if ($custodyStatus === 'Released' && !Auth::isAdmin()) {
-            Response::json(false, 'Only administrators can release inmates.');
         }
 
         $userId = (int) Auth::user()['id'];
@@ -408,9 +406,6 @@ class InmateController
         if ($classification !== null && !in_array($classification, ['Detainee', 'Sentenced', 'Awaiting Trial'], true)) {
             $classification = null;
         }
-        if ($custodyStatus === 'Released' && !Auth::isAdmin()) {
-            Response::json(false, 'Only administrators can release inmates.');
-        }
 
         $userId = (int) Auth::user()['id'];
 
@@ -464,63 +459,6 @@ class InmateController
         } catch (\Throwable $e) {
             error_log('Inmate update: ' . $e->getMessage());
             Response::json(false, 'Unable to update: ' . $e->getMessage());
-        }
-    }
-
-    /* ============================================================
-       RELEASE — administrator only
-       ============================================================ */
-
-    private function release(): void
-    {
-        if (!Auth::isAdmin()) {
-            Response::json(false, 'Only administrators can release inmates.');
-        }
-
-        $p  = Response::readJsonInput();
-        $id = (int) ($p['id'] ?? 0);
-
-        if ($id <= 0) {
-            Response::json(false, 'Invalid inmate.');
-        }
-
-        $stmt = $this->db->prepare(
-            'SELECT id, inmate_number, custody_status
-             FROM inmates
-             WHERE id = ? LIMIT 1'
-        );
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-
-        if (!$row) {
-            Response::json(false, 'Inmate not found.');
-        }
-        if ($row['custody_status'] === 'Released') {
-            Response::json(false, 'Inmate is already released.');
-        }
-
-        $userId = (int) Auth::user()['id'];
-
-        $stmt = $this->db->prepare(
-            'UPDATE inmates SET
-                custody_status = "Released",
-                updated_by     = ?
-             WHERE id = ?'
-        );
-        $stmt->bind_param('ii', $userId, $id);
-
-        try {
-            $stmt->execute();
-            $stmt->close();
-            Response::json(true, 'Inmate released.', [
-                'id'            => $id,
-                'inmate_number' => $row['inmate_number'],
-            ]);
-        } catch (\Throwable $e) {
-            error_log('Inmate release: ' . $e->getMessage());
-            Response::json(false, 'Unable to release inmate.');
         }
     }
 
