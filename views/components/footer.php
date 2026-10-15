@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 ?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 <script src="assets/js/app.js" defer></script>
 <script src="assets/js/searchable-select.js" defer></script>
 <script src="assets/js/inmates.js" defer></script>

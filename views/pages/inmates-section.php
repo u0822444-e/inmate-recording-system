@@ -7,9 +7,8 @@ if (!Auth::isLoggedIn())
 $isInmatesActive = ($currentSection ?? '') === 'inmates';
 $isAdmin = Auth::isAdmin();
 ?>
-<section id="dashboard-inmates"
-         class="dashboard-section <?= $isInmatesActive ? 'is-visible' : '' ?>"
-         data-is-admin="<?= $isAdmin ? '1' : '0' ?>">
+<section id="dashboard-inmates" class="dashboard-section <?= $isInmatesActive ? 'is-visible' : '' ?>"
+    data-is-admin="<?= $isAdmin ? '1' : '0' ?>">
 
     <header class="section-header">
         <div>
@@ -42,7 +41,6 @@ $isAdmin = Auth::isAdmin();
                 <select id="inmateStatusFilter" class="input-select" aria-label="Filter by custody status">
                     <option value="">All statuses</option>
                     <option value="In Custody">In Custody</option>
-                    <option value="Released">Released</option>
                     <option value="Transferred">Transferred</option>
                 </select>
 
@@ -295,12 +293,13 @@ $isAdmin = Auth::isAdmin();
                     <div class="form-grid-row">
                         <label class="field">
                             <span>Years (min)</span>
-                            <input type="number" step="0.1" min="0" id="editSentenceMin" readonly>
+                            <input type="number" step="0.1" min="0" id="editSentenceMin">
                         </label>
                         <label class="field">
                             <span>Years (max)</span>
-                            <input type="number" step="0.1" min="0" id="editSentenceMax" readonly>
+                            <input type="number" step="0.1" min="0" id="editSentenceMax">
                         </label>
+                        ...
                         <label class="field">
                             <span>Admission date</span>
                             <input type="date" id="editAdmissionDate" required>
@@ -309,9 +308,6 @@ $isAdmin = Auth::isAdmin();
                             <span>Custody status</span>
                             <select id="editCustodyStatus">
                                 <option value="In Custody">In Custody</option>
-                                <?php if ($isAdmin): ?>
-                                    <option value="Released">Released</option>
-                                <?php endif; ?>
                                 <option value="Transferred">Transferred</option>
                             </select>
                         </label>

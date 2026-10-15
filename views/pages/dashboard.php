@@ -37,30 +37,24 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
                 </div>
             </header>
 
-            <?php if ($isAdmin): ?>
-                <div class="alert-banner" role="status">
-                    <i class="bi bi-info-circle" aria-hidden="true"></i>
-                    <div class="alert-banner__content">
+            <!-- Alert banner -->
+            <div class="alert-banner" role="status">
+                <i class="bi bi-info-circle" aria-hidden="true"></i>
+                <div class="alert-banner__content">
+                    <?php if ($isAdmin): ?>
                         <strong>Daily headcount due by 18:00</strong>
                         <span>2 shifts are still pending for today's population verification.</span>
-                    </div>
-                    <button type="button" class="alert-banner__close" aria-label="Dismiss">
-                        <i class="bi bi-x-lg" aria-hidden="true"></i>
-                    </button>
-                </div>
-            <?php else: ?>
-                <div class="alert-banner" role="status">
-                    <i class="bi bi-info-circle" aria-hidden="true"></i>
-                    <div class="alert-banner__content">
+                    <?php else: ?>
                         <strong>Shift Reminder</strong>
                         <span>Submit your headcount before the end of your shift.</span>
-                    </div>
-                    <button type="button" class="alert-banner__close" aria-label="Dismiss">
-                        <i class="bi bi-x-lg" aria-hidden="true"></i>
-                    </button>
+                    <?php endif; ?>
                 </div>
-            <?php endif; ?>
+                <button type="button" class="alert-banner__close" aria-label="Dismiss">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
 
+            <!-- KPI STRIP -->
             <div class="kpi-grid">
                 <?php if ($isAdmin): ?>
                     <article class="kpi">
@@ -131,55 +125,131 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
                 <?php endif; ?>
             </div>
 
-            <div class="panel-grid">
-                <article class="card">
-                    <header class="card__header">
-                        <h2 class="card__title">Population Trend</h2>
-                        <div class="tab-group" role="tablist">
-                            <button type="button" class="tab-btn is-active">7D</button>
-                            <button type="button" class="tab-btn">30D</button>
-                            <button type="button" class="tab-btn">12M</button>
+            <?php if ($isAdmin): ?>
+
+                <!-- CHART ROW 1 — Population trend + Classification -->
+                <div class="chart-grid chart-grid--2">
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Population Trend</h2>
+                            <div class="tab-group" role="tablist" data-chart-range="population">
+                                <button type="button" class="tab-btn is-active">30D</button>
+                                <button type="button" class="tab-btn">7D</button>
+                                <button type="button" class="tab-btn">12M</button>
+                            </div>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartPopulationTrend" height="220"></canvas>
                         </div>
-                    </header>
-                    <div class="chart-placeholder">
-                        <i class="bi bi-graph-up"></i>
-                        <span>Trend data will render here</span>
-                    </div>
-                </article>
+                    </article>
 
-                <article class="card">
-                    <header class="card__header">
-                        <h2 class="card__title">Upcoming</h2>
-                        <button type="button" class="btn-ghost btn-sm">
-                            <i class="bi bi-calendar3"></i> Calendar
-                        </button>
-                    </header>
-                    <ul class="event-list" id="upcomingEvents">
-                        <li class="event">
-                            <span class="event__date"><strong>14</strong><small>OCT</small></span>
-                            <div class="event__body">
-                                <strong>Court Hearing</strong>
-                                <span>RTC Ipil · 09:00 · 3 PDL</span>
-                            </div>
-                        </li>
-                        <li class="event">
-                            <span class="event__date"><strong>15</strong><small>OCT</small></span>
-                            <div class="event__body">
-                                <strong>Visitation Day</strong>
-                                <span>Block B · 13:00–17:00</span>
-                            </div>
-                        </li>
-                        <li class="event">
-                            <span class="event__date"><strong>18</strong><small>OCT</small></span>
-                            <div class="event__body">
-                                <strong>Headcount Audit</strong>
-                                <span>Region IX · 08:00</span>
-                            </div>
-                        </li>
-                    </ul>
-                </article>
-            </div>
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Classification</h2>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartClassification" height="220"></canvas>
+                        </div>
+                    </article>
+                </div>
 
+                <!-- CHART ROW 2 — Top offenses + Visitors per day -->
+                <div class="chart-grid chart-grid--2">
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Top Offenses</h2>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartTopOffenses" height="240"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Visitors per Day</h2>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartVisitors" height="240"></canvas>
+                        </div>
+                    </article>
+                </div>
+
+                <!-- CHART ROW 3 — Incidents (type + severity) -->
+                <div class="chart-grid chart-grid--2">
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Incidents by Type</h2>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartIncidentsType" height="240"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Incidents by Severity</h2>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartIncidentsSeverity" height="240"></canvas>
+                        </div>
+                    </article>
+                </div>
+
+                <!-- CHART ROW 4 — Age distribution + Inmates per unit -->
+                <div class="chart-grid chart-grid--2">
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Age Distribution</h2>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartAge" height="220"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Inmates per Jail Unit</h2>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartUnits" height="220"></canvas>
+                        </div>
+                    </article>
+                </div>
+
+                <!-- CHART ROW 5 — Admissions + Drug cases + Compliance -->
+                <div class="chart-grid chart-grid--3">
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Admissions (6 mo.)</h2>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartAdmissions" height="200"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Drug Cases</h2>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartDrugCases" height="200"></canvas>
+                        </div>
+                    </article>
+
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Headcount Compliance</h2>
+                            <span class="meta-text">today</span>
+                        </header>
+                        <div id="complianceList" class="compliance-list">
+                            <p class="meta-text">Loading…</p>
+                        </div>
+                    </article>
+                </div>
+
+            <?php endif; ?>
+
+            <!-- ACTIVITY + UPCOMING + QUICK ACTIONS -->
             <div class="panel-grid">
                 <article class="card">
                     <header class="card__header">
@@ -198,47 +268,50 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
 
                 <article class="card">
                     <header class="card__header">
-                        <h2 class="card__title">Quick Actions</h2>
+                        <h2 class="card__title">Upcoming</h2>
                     </header>
-                    <div class="quick-actions">
-                        <?php if ($isAdmin): ?>
-                            <button type="button" class="action-tile" data-section="inmates">
-                                <i class="bi bi-person-plus"></i>
-                                <span>Add inmate record</span>
-                            </button>
-                            <button type="button" class="action-tile" data-section="headcount">
-                                <i class="bi bi-clipboard2-check"></i>
-                                <span>Review headcount</span>
-                            </button>
-                            <button type="button" class="action-tile" data-section="incidents">
-                                <i class="bi bi-exclamation-diamond"></i>
-                                <span>Log an incident</span>
-                            </button>
-                            <button type="button" class="action-tile" data-section="users">
-                                <i class="bi bi-person-gear"></i>
-                                <span>Manage users</span>
-                            </button>
-                        <?php else: ?>
-                            <button type="button" class="action-tile" data-section="recording">
-                                <i class="bi bi-pencil-square"></i>
-                                <span>Record new inmate</span>
-                            </button>
-                            <button type="button" class="action-tile" data-section="headcount">
-                                <i class="bi bi-clipboard2-check"></i>
-                                <span>Submit headcount</span>
-                            </button>
-                            <button type="button" class="action-tile" data-section="visitors">
-                                <i class="bi bi-person-plus"></i>
-                                <span>Log visitor</span>
-                            </button>
-                            <button type="button" class="action-tile" data-section="incidents">
-                                <i class="bi bi-exclamation-diamond"></i>
-                                <span>Report incident</span>
-                            </button>
-                        <?php endif; ?>
-                    </div>
+                    <ul class="event-list" id="upcomingEvents">
+                        <li class="event">
+                            <div class="event__body"><strong>Loading…</strong></div>
+                        </li>
+                    </ul>
                 </article>
             </div>
+
+            <article class="card">
+                <header class="card__header">
+                    <h2 class="card__title">Quick Actions</h2>
+                </header>
+                <div class="quick-actions">
+                    <?php if ($isAdmin): ?>
+                        <button type="button" class="action-tile" data-section="inmates">
+                            <i class="bi bi-person-plus"></i><span>Add inmate record</span>
+                        </button>
+                        <button type="button" class="action-tile" data-section="headcount">
+                            <i class="bi bi-clipboard2-check"></i><span>Review headcount</span>
+                        </button>
+                        <button type="button" class="action-tile" data-section="incidents">
+                            <i class="bi bi-exclamation-diamond"></i><span>Log an incident</span>
+                        </button>
+                        <button type="button" class="action-tile" data-section="users">
+                            <i class="bi bi-person-gear"></i><span>Manage users</span>
+                        </button>
+                    <?php else: ?>
+                        <button type="button" class="action-tile" data-section="recording">
+                            <i class="bi bi-pencil-square"></i><span>Record new inmate</span>
+                        </button>
+                        <button type="button" class="action-tile" data-section="headcount">
+                            <i class="bi bi-clipboard2-check"></i><span>Submit headcount</span>
+                        </button>
+                        <button type="button" class="action-tile" data-section="visitors">
+                            <i class="bi bi-person-plus"></i><span>Log visitor</span>
+                        </button>
+                        <button type="button" class="action-tile" data-section="incidents">
+                            <i class="bi bi-exclamation-diamond"></i><span>Report incident</span>
+                        </button>
+                    <?php endif; ?>
+                </div>
+            </article>
 
             <footer class="dashboard-statusbar">
                 <span class="statusbar__item">
@@ -385,12 +458,10 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
                                 </div>
                             </label>
                             <label>Years (min)
-                                <input type="number" step="0.1" min="0" name="sentence_years_min" id="inmateSentenceMin"
-                                    readonly>
+                                <input type="number" step="0.1" min="0" name="sentence_years_min" id="inmateSentenceMin">
                             </label>
                             <label>Years (max)
-                                <input type="number" step="0.1" min="0" name="sentence_years_max" id="inmateSentenceMax"
-                                    readonly>
+                                <input type="number" step="0.1" min="0" name="sentence_years_max" id="inmateSentenceMax">
                             </label>
                         </div>
                         <div class="form-row">
