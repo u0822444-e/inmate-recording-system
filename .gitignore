@@ -1,26 +1,39 @@
-# Config with secrets
-config/database.php
-
-# OS junk
-Thumbs.db
+# ---- OS / editor junk ----
 .DS_Store
+Thumbs.db
 desktop.ini
-
-# Editor
 .vscode/
 .idea/
 *.swp
+*.swo
 
-# Logs
+# ---- Logs ----
 *.log
 php_errors.log
 
-# Uploads / user data
+# ---- Backups ----
+*.bak
+*.sql
+*.sql.gz
+*.zip
+
+# ---- Sensitive config ----
+config/database.php
+config/database.local.php
+config/.env
+config/*.secret.php
+
+# ---- Uploads / user data ----
 public_html/uploads/
 public_html/assets/uploads/
 
-# Composer / node (if you ever add them)
+# ---- Composer / node (if used) ----
 vendor/
 node_modules/
-# Database dumps and exports (contain sensitive data)
-*.sql
+
+# ---- Server-only files ----
+public_html/.htaccess
+
+# Local backups
+.gitignore.backup
+*.backup
