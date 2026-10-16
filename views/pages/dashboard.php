@@ -6,12 +6,17 @@ $isAdmin = Auth::isAdmin();
 $user = Auth::user();
 $today = date('M j, Y');
 
-$allowedSections = ['overview', 'recording', 'inmates', 'visitors', 'incidents', 'headcount', 'users', 'jail-units', 'reports', 'profile'];
+$allowedSections = ['overview', 'inmates', 'visitors', 'incidents', 'headcount', 'users', 'jail-units', 'reports', 'profile'];
 $requested = $_GET['section'] ?? 'overview';
 $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'overview';
 ?>
 <section id="dashboardScreen" class="dashboard-shell" data-role="<?= $isAdmin ? 'admin' : 'staff' ?>"
-    data-initial-section="<?= htmlspecialchars($currentSection, ENT_QUOTES) ?>">
+    data-initial-section="<?= htmlspecialchars($currentSection, ENT_QUOTES) ?>"
+    data-user-id="<?= (int) ($user['id'] ?? 0) ?>">
+
+    <script>
+        document.body.dataset.userId = <?= (int) ($user['id'] ?? 0) ?>;
+    </script>
 
     <?php require __DIR__ . '/../components/sidebar.php'; ?>
 
@@ -133,8 +138,8 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
                         <header class="card__header">
                             <h2 class="card__title">Population Trend</h2>
                             <div class="tab-group" role="tablist" data-chart-range="population">
-                                <button type="button" class="tab-btn is-active">30D</button>
                                 <button type="button" class="tab-btn">7D</button>
+                                <button type="button" class="tab-btn is-active">30D</button>
                                 <button type="button" class="tab-btn">12M</button>
                             </div>
                         </header>
@@ -249,44 +254,12 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
 
             <?php endif; ?>
 
-            <!-- ACTIVITY + UPCOMING + QUICK ACTIONS -->
-            <div class="panel-grid">
-                <article class="card">
-                    <header class="card__header">
-                        <h2 class="card__title"><?= $isAdmin ? 'Recent Activity' : 'My Recent Activity' ?></h2>
-                    </header>
-                    <ul class="activity-list" id="activityFeed">
-                        <li class="activity">
-                            <span class="activity__icon"><i class="bi bi-clock-history"></i></span>
-                            <div class="activity__body">
-                                <strong>Loading…</strong>
-                                <span>Fetching recent events</span>
-                            </div>
-                        </li>
-                    </ul>
-                </article>
-
-                <article class="card">
-                    <header class="card__header">
-                        <h2 class="card__title">Upcoming</h2>
-                    </header>
-                    <ul class="event-list" id="upcomingEvents">
-                        <li class="event">
-                            <div class="event__body"><strong>Loading…</strong></div>
-                        </li>
-                    </ul>
-                </article>
-            </div>
-
             <article class="card">
                 <header class="card__header">
                     <h2 class="card__title">Quick Actions</h2>
                 </header>
                 <div class="quick-actions">
                     <?php if ($isAdmin): ?>
-                        <button type="button" class="action-tile" data-section="inmates">
-                            <i class="bi bi-person-plus"></i><span>Add inmate record</span>
-                        </button>
                         <button type="button" class="action-tile" data-section="headcount">
                             <i class="bi bi-clipboard2-check"></i><span>Review headcount</span>
                         </button>
@@ -297,7 +270,7 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
                             <i class="bi bi-person-gear"></i><span>Manage users</span>
                         </button>
                     <?php else: ?>
-                        <button type="button" class="action-tile" data-section="recording">
+                        <button type="button" class="action-tile" id="quickRecordInmateBtn">
                             <i class="bi bi-pencil-square"></i><span>Record new inmate</span>
                         </button>
                         <button type="button" class="action-tile" data-section="headcount">
@@ -335,166 +308,7 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
             </footer>
         </section>
 
-        <!-- ============================================================
-             STAFF: RECORD INMATE
-             ============================================================ -->
-        <?php if (!$isAdmin): ?>
-            <section id="dashboard-recording"
-                class="dashboard-section <?= $currentSection === 'recording' ? 'is-visible' : '' ?>">
 
-                <header class="section-header">
-                    <div>
-                        <h1>Record Inmate</h1>
-                        <p>Encode new PDL information into the system.</p>
-                    </div>
-                </header>
-
-                <form class="form-grid" id="inmateForm" novalidate>
-                    <input type="hidden" name="province" id="inmateProvinceValue">
-                    <input type="hidden" name="municipality_id" id="inmateMunicipalityId">
-                    <input type="hidden" name="barangay_id" id="inmateBarangayId">
-                    <input type="hidden" name="offense_id" id="inmateOffenseId">
-                    <input type="hidden" name="jail_unit_id" id="inmateJailUnitId">
-
-                    <fieldset class="fieldset">
-                        <legend>Identification</legend>
-                        <div class="form-row">
-                            <label>Inmate No.
-                                <input type="text" name="inmate_number" id="inmateNumber" readonly>
-                            </label>
-                            <label>Case Reference
-                                <input type="text" name="case_reference" id="inmateCaseRef" readonly>
-                            </label>
-                        </div>
-                        <div class="form-row">
-                            <label>Jail Unit
-                                <div id="inmateJailUnitWrap"></div>
-                            </label>
-                        </div>
-                    </fieldset>
-
-                    <fieldset class="fieldset">
-                        <legend>Personal Information</legend>
-                        <div class="form-row">
-                            <label>First name<input type="text" name="first_name" id="inmateFirstName" required></label>
-                            <label>Middle name<input type="text" name="middle_name" id="inmateMiddleName"></label>
-                            <label>Last name<input type="text" name="last_name" id="inmateLastName" required></label>
-                            <label>Suffix<input type="text" name="suffix" id="inmateSuffix" maxlength="20"></label>
-                        </div>
-                        <div class="form-row">
-                            <label>Date of birth<input type="date" name="date_of_birth" id="inmateDob"></label>
-                            <label>Sex
-                                <select name="sex" id="inmateSex">
-                                    <option value="Unspecified">Unspecified</option>
-                                    <option>Male</option>
-                                    <option>Female</option>
-                                    <option>Other</option>
-                                </select>
-                            </label>
-                            <label>Civil status
-                                <select name="civil_status" id="inmateCivilStatus">
-                                    <option value="">—</option>
-                                    <option>Single</option>
-                                    <option>Married</option>
-                                    <option>Widowed</option>
-                                    <option>Separated</option>
-                                </select>
-                            </label>
-                        </div>
-                    </fieldset>
-
-                    <fieldset class="fieldset">
-                        <legend>Address</legend>
-                        <div class="form-row">
-                            <label>Province
-                                <div id="inmateProvinceWrap"></div>
-                            </label>
-                            <label>Municipality
-                                <div id="inmateMunicipalityWrap"></div>
-                            </label>
-                            <label>Barangay
-                                <div id="inmateBarangayWrap"></div>
-                            </label>
-                        </div>
-                    </fieldset>
-
-                    <fieldset class="fieldset">
-                        <legend>Case &amp; Custody</legend>
-                        <div class="form-row">
-                            <label>Offense
-                                <div id="inmateOffenseWrap"></div>
-                            </label>
-                        </div>
-                        <div class="form-row">
-                            <label>Classification
-                                <select name="classification" id="inmateClassification">
-                                    <option value="">—</option>
-                                    <option>Detainee</option>
-                                    <option>Sentenced</option>
-                                    <option>Awaiting Trial</option>
-                                </select>
-                            </label>
-                            <label>Committed date
-                                <input type="date" name="committed_at" id="inmateCommittedAt">
-                            </label>
-                            <label class="field-checkbox">
-                                <input type="checkbox" name="is_drug_case" id="inmateIsDrugCase" value="1">
-                                <span>Drug-related case (R.A. 9165 / 6425)</span>
-                            </label>
-                        </div>
-                        <div class="form-row">
-                            <label>
-                                <span class="field-label-row">
-                                    Sentence
-                                    <span class="sentence-badge" id="sentenceBadge" hidden>auto</span>
-                                </span>
-                                <div class="sentence-input">
-                                    <input type="text" name="sentence" id="inmateSentence"
-                                        placeholder="Auto-filled from offense">
-                                    <button type="button" class="sentence-reset" id="sentenceResetBtn" hidden
-                                        title="Reset to default">
-                                        <i class="bi bi-arrow-counterclockwise"></i>
-                                    </button>
-                                </div>
-                            </label>
-                            <label>Years (min)
-                                <input type="number" step="0.1" min="0" name="sentence_years_min" id="inmateSentenceMin">
-                            </label>
-                            <label>Years (max)
-                                <input type="number" step="0.1" min="0" name="sentence_years_max" id="inmateSentenceMax">
-                            </label>
-                        </div>
-                        <div class="form-row">
-                            <label>Admission date
-                                <input type="date" name="admission_date" id="inmateAdmissionDate" required>
-                            </label>
-                            <label>Custody status
-                                <select name="custody_status" id="inmateCustodyStatus">
-                                    <option>In Custody</option>
-                                    <option>Released</option>
-                                    <option>Transferred</option>
-                                </select>
-                            </label>
-                        </div>
-                        <input type="hidden" name="sentence_is_manual" id="inmateSentenceManual" value="0">
-                    </fieldset>
-
-                    <fieldset class="fieldset">
-                        <legend>Notes</legend>
-                        <label>Additional notes
-                            <textarea name="notes" id="inmateNotes" rows="3"></textarea>
-                        </label>
-                    </fieldset>
-
-                    <p class="modal__error" id="inmateFormError" hidden></p>
-
-                    <div class="form-actions">
-                        <button type="reset" class="btn-secondary">Clear</button>
-                        <button type="submit" class="btn-primary" id="inmateSaveBtn">Save Record</button>
-                    </div>
-                </form>
-            </section>
-        <?php endif; ?>
 
         <!-- ============================================================
              INMATES
@@ -532,6 +346,7 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
     <?php require __DIR__ . '/../components/modal-user.php'; ?>
 <?php endif; ?>
 
+<?php require __DIR__ . '/../components/modal-inmate.php'; ?>
 <?php require __DIR__ . '/../components/modal-confirm.php'; ?>
 <?php require __DIR__ . '/../components/modal-success.php'; ?>
 <?php require __DIR__ . '/../components/modal-logout.php'; ?>

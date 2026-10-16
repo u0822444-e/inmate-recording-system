@@ -1,7 +1,13 @@
 <?php
 declare(strict_types=1);
 use App\Services\Auth;
-if (!Auth::isAdmin()) return;
+if (!Auth::isAdmin())
+    return;
+
+// Load dropdown options
+$__opts = require __DIR__ . '/../../config/user_options.php';
+$positionOptions = $__opts['positions'];
+$bjmpRankOptions = $__opts['bjmp_ranks'];
 ?>
 <div class="modal-backdrop is-hidden" id="userModal">
     <div class="dj-modal dj-modal--wide" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
@@ -58,7 +64,8 @@ if (!Auth::isAdmin()) return;
                             <span>Assigned Jail Unit</span>
                             <div id="userJailUnitWrap"></div>
                             <span class="field__hint" id="userJailUnitHint">
-                                Staff can only manage records for their assigned unit. Leave blank for system-wide admins.
+                                Staff can only manage records for their assigned unit. Leave blank for system-wide
+                                admins.
                             </span>
                         </label>
                     </div>
@@ -113,15 +120,25 @@ if (!Auth::isAdmin()) return;
                     <div class="form-grid-row">
                         <label class="field">
                             <span>Position</span>
-                            <input type="text" id="userPosition" maxlength="100">
+                            <select id="userPosition">
+                                <option value="">— Select position —</option>
+                                <?php foreach ($positionOptions as $pos): ?>
+                                    <option value="<?= htmlspecialchars($pos, ENT_QUOTES) ?>">
+                                        <?= htmlspecialchars($pos, ENT_QUOTES) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </label>
                         <label class="field">
                             <span>BJMP Rank</span>
-                            <input type="text" id="userBjmpRank" maxlength="100">
-                        </label>
-                        <label class="field">
-                            <span>Salary Grade</span>
-                            <input type="number" id="userSalaryGrade" min="0" max="33">
+                            <select id="userBjmpRank">
+                                <option value="">— Select rank —</option>
+                                <?php foreach ($bjmpRankOptions as $rank): ?>
+                                    <option value="<?= htmlspecialchars($rank, ENT_QUOTES) ?>">
+                                        <?= htmlspecialchars($rank, ENT_QUOTES) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </label>
                     </div>
                     <div class="form-grid-row">
@@ -137,7 +154,7 @@ if (!Auth::isAdmin()) return;
                             <span>Employment status</span>
                             <select id="userEmploymentStatus">
                                 <option value="">—</option>
-                                <option value="Regular/Permanent">Regular/Permanent</option>
+                                <option value="Regular">Regular</option>
                                 <option value="Probationary">Probationary</option>
                                 <option value="Contractual">Contractual</option>
                                 <option value="Casual">Casual</option>
@@ -163,11 +180,18 @@ if (!Auth::isAdmin()) return;
 
                 <fieldset class="user-form-section">
                     <legend>Security</legend>
-                    <label class="field">
-                        <span>Password</span>
-                        <input type="password" id="userPassword" autocomplete="new-password">
-                        <span class="field__hint" id="userPasswordHint">min 8 characters</span>
-                    </label>
+                    <div class="form-grid-row">
+                        <label class="field">
+                            <span>Password</span>
+                            <input type="password" id="userPassword" autocomplete="new-password">
+                            <span class="field__hint" id="userPasswordHint">min 8 characters</span>
+                        </label>
+                        <label class="field">
+                            <span>Confirm password</span>
+                            <input type="password" id="userPasswordConfirm" autocomplete="new-password">
+                            <span class="field__hint" id="userPasswordConfirmHint">retype password</span>
+                        </label>
+                    </div>
                 </fieldset>
 
                 <p class="modal__error" id="userFormError" hidden></p>

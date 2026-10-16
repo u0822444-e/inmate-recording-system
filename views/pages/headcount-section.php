@@ -21,6 +21,10 @@ $lockJailUnit      = !$isAdmin && $currentJailUnitId !== null;
             <p>Daily population verification.</p>
         </div>
         <div class="section-header__tools">
+            <button type="button" class="btn-secondary btn-sm" id="headcountArchiveToggleBtn">
+                <i class="bi bi-archive"></i>
+                <span id="headcountArchiveToggleLabel">View Archived</span>
+            </button>
             <button type="button" class="btn-primary btn-sm" id="headcountSubmitBtn">
                 <i class="bi bi-plus-lg"></i> Submit Headcount
             </button>
@@ -100,7 +104,7 @@ $lockJailUnit      = !$isAdmin && $currentJailUnitId !== null;
 </section>
 
 <!-- ============================================================
-     HEADCOUNT MODAL (Submit or Verify)
+     HEADCOUNT MODAL (Submit / Edit)
      ============================================================ -->
 <div class="modal-backdrop is-hidden" id="headcountModal">
     <div class="dj-modal dj-modal--wide" role="dialog" aria-modal="true" aria-labelledby="headcountModalTitle">

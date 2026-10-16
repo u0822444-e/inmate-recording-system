@@ -16,6 +16,9 @@ $isAdmin = Auth::isAdmin();
             <p>Search, filter, and review PDL records.</p>
         </div>
         <div class="section-header__tools">
+            <button type="button" class="btn-primary btn-sm" id="inmateCreateBtn">
+                <i class="bi bi-plus-lg"></i> New Inmate
+            </button>
             <?php if ($isAdmin): ?>
                 <button type="button" class="btn-secondary btn-sm" id="inmateExportBtn">
                     <i class="bi bi-download"></i> Export CSV

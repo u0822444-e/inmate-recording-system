@@ -7,7 +7,6 @@ $user     = Auth::user();
 $initial  = strtoupper(substr($user['full_name'] ?: $user['username'] ?: 'U', 0, 1));
 $current  = $currentSection ?? 'overview';
 
-// Auto-open the dropdown if the current section is one of its children.
 $recordsSections = ['inmates', 'visitors', 'incidents', 'headcount'];
 $recordsOpen = in_array($current, $recordsSections, true);
 ?>
@@ -100,11 +99,6 @@ $recordsOpen = in_array($current, $recordsSections, true);
             </button>
 
             <div class="sidebar-nav__children <?= $recordsOpen ? 'is-open' : '' ?>" data-group-children="operations">
-                <button type="button"
-                        class="sidebar-nav__item <?= $current === 'recording' ? 'is-active' : '' ?>"
-                        data-section="recording">
-                    <i class="bi bi-pencil-square"></i><span>Record Inmate</span>
-                </button>
                 <button type="button"
                         class="sidebar-nav__item <?= $current === 'inmates' ? 'is-active' : '' ?>"
                         data-section="inmates">

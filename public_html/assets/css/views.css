@@ -1235,3 +1235,123 @@
 .compliance-bar__fill.is-complete { background: #16a34a; }
 .compliance-bar__fill.is-partial  { background: #f59e0b; }
 .compliance-bar__fill.is-low      { background: #dc2626; }
+
+/* ============================================================
+   REPORT DRILL-DOWN
+   ============================================================ */
+
+.report-row--clickable {
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.report-row--clickable:hover {
+    background: #f1f5f9;
+}
+
+.report-row--clickable:focus-within {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+}
+
+.report-row__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.report-row__caret {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    opacity: 0;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.report-row--clickable:hover .report-row__caret {
+    opacity: 1;
+    transform: translateX(2px);
+}
+
+/* ============================================================
+   PANEL TOOLBAR — filter bars for Headcount, Incidents, Visitors
+   ============================================================ */
+
+.panel__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+    background: #fff;
+}
+
+/* Every filter control — selects + date — shares the row evenly */
+.panel__toolbar > select.input-select,
+.panel__toolbar > input.input-select,
+.panel__toolbar > input[type="date"].input-select {
+    flex: 1 1 0 !important;         /* equal share, grow from 0 */
+    width: auto !important;         /* kill any fixed width */
+    max-width: none !important;     /* kill any max-width */
+    min-width: 140px;
+    height: 38px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border, #cbd5e1);
+    border-radius: var(--radius-sm, 6px);
+    background: #fff;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: inherit;
+    line-height: 1;
+    box-sizing: border-box;
+}
+
+.panel__toolbar > input[type="date"].input-select {
+    cursor: pointer;
+}
+
+.panel__toolbar > input[type="date"].input-select::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+    cursor: pointer;
+}
+
+.panel__toolbar > input[type="date"].input-select::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+/* Search input inside a panel toolbar — grows more */
+.panel__toolbar > .input-wrap {
+    flex: 2 1 260px;
+    min-width: 220px;
+}
+
+/* Buttons don't stretch */
+.panel__toolbar > .btn-primary,
+.panel__toolbar > .btn-secondary,
+.panel__toolbar > .btn-ghost {
+    flex: 0 0 auto;
+    height: 38px;
+}
+
+.panel__toolbar > .btn-primary:last-child,
+.panel__toolbar > .btn-secondary:last-child,
+.panel__toolbar > .btn-ghost:last-child {
+    margin-left: auto;
+}
+
+/* Compact card variant */
+.card--compact {
+    padding: 0;
+}
+.card--compact .panel__toolbar:first-child {
+    border-top-left-radius: var(--radius-lg, 12px);
+    border-top-right-radius: var(--radius-lg, 12px);
+}
+
+.icon-btn--archive {
+    color: #b45309;
+}
+.icon-btn--archive:hover {
+    background: rgba(180, 83, 9, 0.12);
+    color: #92400e;
+}

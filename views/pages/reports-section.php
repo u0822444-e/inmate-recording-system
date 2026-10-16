@@ -44,3 +44,30 @@ $isReportsActive = ($currentSection ?? '') === 'reports';
         <div class="data-table__empty">Loading…</div>
     </div>
 </section>
+
+<!-- ============================================================
+     BARANGAY DRILL-DOWN MODAL
+     ============================================================ -->
+<div class="modal-backdrop is-hidden" id="reportDrilldownModal">
+    <div class="dj-modal dj-modal--wide" role="dialog" aria-modal="true"
+         aria-labelledby="reportDrilldownTitle">
+        <header class="dj-modal__header">
+            <div class="dj-modal__header-title">
+                <h2 id="reportDrilldownTitle">Barangay Breakdown</h2>
+            </div>
+            <button type="button" class="dj-modal__close"
+                    data-report-drilldown-close aria-label="Close">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </header>
+
+        <div class="dj-modal__body" id="reportDrilldownBody">
+            <div class="data-table__empty">Loading…</div>
+        </div>
+
+        <footer class="dj-modal__footer">
+            <button type="button" class="btn-secondary"
+                    data-report-drilldown-close>Close</button>
+        </footer>
+    </div>
+</div>
