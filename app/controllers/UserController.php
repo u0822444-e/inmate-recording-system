@@ -233,8 +233,6 @@ class UserController
             'date_hired' => trim((string) ($p['date_hired'] ?? '')) ?: null,
             'employment_status' => trim((string) ($p['employment_status'] ?? '')) ?: null,
             'bjmp_rank' => trim((string) ($p['bjmp_rank'] ?? '')) ?: null,
-            'salary_grade' => isset($p['salary_grade']) && $p['salary_grade'] !== ''
-                ? (int) $p['salary_grade'] : null,
             'personnel_type' => trim((string) ($p['personnel_type'] ?? '')) ?: null,
             'eligibility' => trim((string) ($p['eligibility'] ?? '')) ?: null,
             'role' => trim((string) ($p['role'] ?? '')),

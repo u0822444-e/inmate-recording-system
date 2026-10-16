@@ -43,6 +43,129 @@ class Report
         }
     }
 
+        /* ============================================================
+       ACTUAL POPULATION — by barangay within a municipality
+       ============================================================ */
+
+    public function actualPopulationByBarangay(int $municipalityId): array
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT
+                    COALESCE(b.name, 'Unspecified') AS barangay,
+
+                    SUM(CASE WHEN i.classification = 'Detainee' AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS detainee_male,
+                    SUM(CASE WHEN i.classification = 'Detainee' AND i.sex = 'Female' THEN 1 ELSE 0 END) AS detainee_female,
+
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Municipal'  AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS municipal_male,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Municipal'  AND i.sex = 'Female' THEN 1 ELSE 0 END) AS municipal_female,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'City'       AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS city_male,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'City'       AND i.sex = 'Female' THEN 1 ELSE 0 END) AS city_female,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Provincial' AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS provincial_male,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Provincial' AND i.sex = 'Female' THEN 1 ELSE 0 END) AS provincial_female,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Insular'    AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS insular_male,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Insular'    AND i.sex = 'Female' THEN 1 ELSE 0 END) AS insular_female,
+
+                    SUM(CASE WHEN i.classification = 'Detainee'  THEN 1 ELSE 0 END) AS detainee_total,
+                    SUM(CASE WHEN i.classification = 'Sentenced' THEN 1 ELSE 0 END) AS sentenced_total,
+                    COUNT(*) AS grand_total
+                FROM inmates i
+                LEFT JOIN barangays b ON b.id = i.barangay_id
+                WHERE i.custody_status = 'In Custody'
+                  AND i.municipality_id = ?
+                GROUP BY b.id, b.name
+                ORDER BY b.name ASC
+            ");
+            $stmt->bind_param('i', $municipalityId);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            foreach ($rows as &$r) {
+                foreach ($r as $k => $v) {
+                    if ($k !== 'barangay') $r[$k] = (int) $v;
+                }
+            }
+            return $rows;
+        } catch (\Throwable $e) {
+            error_log('actualPopulationByBarangay: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /* ============================================================
+       ESCORTS — by barangay within a municipality
+       ============================================================ */
+
+    public function escortedByBarangay(int $municipalityId, string $monthYyyyMm): array
+    {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT
+                    COALESCE(b.name, 'Unspecified') AS barangay,
+
+                    SUM(CASE WHEN e.purpose='Court Hearing' AND i.sex='Male'   THEN 1 ELSE 0 END) AS court_male,
+                    SUM(CASE WHEN e.purpose='Court Hearing' AND i.sex='Female' THEN 1 ELSE 0 END) AS court_female,
+                    SUM(CASE WHEN e.purpose='Hospital'      AND i.sex='Male'   THEN 1 ELSE 0 END) AS hospital_male,
+                    SUM(CASE WHEN e.purpose='Hospital'      AND i.sex='Female' THEN 1 ELSE 0 END) AS hospital_female,
+                    SUM(CASE WHEN e.purpose='Drug Exam'     AND i.sex='Male'   THEN 1 ELSE 0 END) AS drug_exam_male,
+                    SUM(CASE WHEN e.purpose='Drug Exam'     AND i.sex='Female' THEN 1 ELSE 0 END) AS drug_exam_female,
+                    SUM(CASE WHEN e.purpose='Rehab'         AND i.sex='Male'   THEN 1 ELSE 0 END) AS rehab_male,
+                    SUM(CASE WHEN e.purpose='Rehab'         AND i.sex='Female' THEN 1 ELSE 0 END) AS rehab_female,
+                    SUM(CASE WHEN e.purpose='Inquest'       AND i.sex='Male'   THEN 1 ELSE 0 END) AS inquest_male,
+                    SUM(CASE WHEN e.purpose='Inquest'       AND i.sex='Female' THEN 1 ELSE 0 END) AS inquest_female,
+                    SUM(CASE WHEN e.purpose='Transfer'      AND i.sex='Male'   THEN 1 ELSE 0 END) AS transfer_male,
+                    SUM(CASE WHEN e.purpose='Transfer'      AND i.sex='Female' THEN 1 ELSE 0 END) AS transfer_female,
+                    SUM(CASE WHEN e.purpose='Visitation'    AND i.sex='Male'   THEN 1 ELSE 0 END) AS visitation_male,
+                    SUM(CASE WHEN e.purpose='Visitation'    AND i.sex='Female' THEN 1 ELSE 0 END) AS visitation_female,
+                    SUM(CASE WHEN e.purpose='Other'         AND i.sex='Male'   THEN 1 ELSE 0 END) AS other_male,
+                    SUM(CASE WHEN e.purpose='Other'         AND i.sex='Female' THEN 1 ELSE 0 END) AS other_female,
+
+                    COUNT(*) AS total
+                FROM escorts e
+                INNER JOIN inmates i ON i.id = e.inmate_id
+                LEFT JOIN barangays b ON b.id = i.barangay_id
+                WHERE i.municipality_id = ?
+                  AND DATE_FORMAT(e.escort_date, '%Y-%m') = ?
+                GROUP BY b.id, b.name
+                ORDER BY b.name ASC
+            ");
+            $stmt->bind_param('is', $municipalityId, $monthYyyyMm);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            foreach ($rows as &$r) {
+                foreach ($r as $k => $v) {
+                    if ($k !== 'barangay') $r[$k] = (int) $v;
+                }
+            }
+            return $rows;
+        } catch (\Throwable $e) {
+            error_log('escortedByBarangay: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /* Helper: look up a municipality by name (for the modal title) */
+    public function findMunicipalityByName(string $name): ?array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT id, name, province FROM municipalities WHERE name = ? LIMIT 1"
+            );
+            $stmt->bind_param('s', $name);
+            $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$row) return null;
+            $row['id'] = (int) $row['id'];
+            return $row;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /* ============================================================
        POPULATION SNAPSHOT — Detailed (classification × prisoner class × sex)
        ============================================================ */

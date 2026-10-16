@@ -38,7 +38,7 @@ class User
                    u.first_name, u.middle_name, u.last_name, u.full_name,
                    u.email, u.phone, u.birthdate, u.sex, u.civil_status,
                    u.employee_no, u.`position`, u.`rank`, u.department, u.date_hired, u.employment_status,
-                   u.bjmp_rank, u.salary_grade, u.personnel_type, u.eligibility,
+                   u.bjmp_rank, u.personnel_type, u.eligibility,
                    u.role, u.is_active, u.created_at, u.archived_at,
                    j.name AS jail_unit_name
             FROM users u
@@ -92,7 +92,6 @@ class User
             $r['id'] = (int) $r['id'];
             $r['jail_unit_id'] = $r['jail_unit_id'] !== null ? (int) $r['jail_unit_id'] : null;
             $r['is_active'] = (bool) $r['is_active'];
-            $r['salary_grade'] = $r['salary_grade'] !== null ? (int) $r['salary_grade'] : null;
         }
         return $rows;
     }
@@ -121,7 +120,7 @@ class User
              (username, jail_unit_id, first_name, middle_name, last_name, full_name,
               email, phone, birthdate, sex, civil_status,
               employee_no, `position`, `rank`, department, date_hired, employment_status,
-              bjmp_rank, salary_grade, personnel_type, eligibility,
+              bjmp_rank, personnel_type, eligibility,
               role, password, is_active, archived_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)'
         );
@@ -145,7 +144,6 @@ class User
             $data['date_hired'],
             $data['employment_status'],
             $data['bjmp_rank'],
-            $data['salary_grade'],
             $data['personnel_type'],
             $data['eligibility'],
             $data['role'],
@@ -172,7 +170,7 @@ class User
                     first_name = ?, middle_name = ?, last_name = ?, full_name = ?,
                     email = ?, phone = ?, birthdate = ?, sex = ?, civil_status = ?,
                     employee_no = ?, `position` = ?, `rank` = ?, department = ?, date_hired = ?, employment_status = ?,
-                    bjmp_rank = ?, salary_grade = ?, personnel_type = ?, eligibility = ?,
+                    bjmp_rank = ?, personnel_type = ?, eligibility = ?,
                     role = ?';
 
         $params = [
@@ -194,7 +192,6 @@ class User
             $data['date_hired'],
             $data['employment_status'],
             $data['bjmp_rank'],
-            $data['salary_grade'],
             $data['personnel_type'],
             $data['eligibility'],
             $data['role'],

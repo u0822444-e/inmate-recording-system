@@ -19,14 +19,15 @@ class Headcount
         string $status = '',
         string $date = '',
         int $limit = 20,
-        int $offset = 0
+        int $offset = 0,
+        string $scope = 'active'
     ): array {
         $sql = 'SELECT h.id, h.shift, h.jail_unit_id,
                        h.recorded_on, h.recorded_at,
                        h.expected_count, h.actual_count,
                        h.status, h.remarks,
                        h.recorded_by, h.verified_by, h.verified_at,
-                       h.created_at,
+                       h.created_at, h.archived_at,
                        j.name AS jail_unit_name,
                        ru.full_name AS recorded_by_name,
                        vu.full_name AS verified_by_name
@@ -35,6 +36,11 @@ class Headcount
                 LEFT JOIN users      ru ON ru.id = h.recorded_by
                 LEFT JOIN users      vu ON vu.id = h.verified_by
                 WHERE 1 = 1';
+
+        // Scope filter
+        $sql .= ($scope === 'archived')
+            ? ' AND h.archived_at IS NOT NULL'
+            : ' AND h.archived_at IS NULL';
 
         $params = [];
         $types  = '';
@@ -143,7 +149,7 @@ class Headcount
         );
 
         $stmt->bind_param(
-            'sisii si',
+            'sisiisi',
             $data['shift'],
             $data['jail_unit_id'],
             $data['recorded_on'],
@@ -157,6 +163,32 @@ class Headcount
         $id = (int) $stmt->insert_id;
         $stmt->close();
         return $id;
+    }
+
+    /* ============================================================
+       UPDATE (edit a submitted headcount)
+       ============================================================ */
+
+    public function update(int $id, array $data): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE headcounts SET
+                shift          = ?,
+                recorded_on    = ?,
+                actual_count   = ?,
+                remarks        = ?
+             WHERE id = ?'
+        );
+        $stmt->bind_param(
+            'ssisi',
+            $data['shift'],
+            $data['recorded_on'],
+            $data['actual_count'],
+            $data['remarks'],
+            $id
+        );
+        $stmt->execute();
+        $stmt->close();
     }
 
     /* ============================================================
@@ -180,12 +212,42 @@ class Headcount
     }
 
     /* ============================================================
-       DELETE (admin)
+       ARCHIVE (soft delete)
+       ============================================================ */
+
+    public function archive(int $id): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE headcounts SET archived_at = CURRENT_TIMESTAMP WHERE id = ?'
+        );
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    /* ============================================================
+       RESTORE (undo archive)
+       ============================================================ */
+
+    public function restore(int $id): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE headcounts SET archived_at = NULL WHERE id = ?'
+        );
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    /* ============================================================
+       PERMANENT DELETE (admin only)
        ============================================================ */
 
     public function delete(int $id): void
     {
-        $stmt = $this->db->prepare('DELETE FROM headcounts WHERE id = ?');
+        $stmt = $this->db->prepare(
+            'DELETE FROM headcounts WHERE id = ? AND archived_at IS NOT NULL'
+        );
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();
@@ -195,11 +257,17 @@ class Headcount
        DUPLICATE CHECK
        ============================================================ */
 
-    public function existsForShift(string $date, string $shift, int $jailUnitId, int $excludeId = 0): bool
-    {
+    public function existsForShift(
+        string $date,
+        string $shift,
+        int $jailUnitId,
+        int $excludeId = 0
+    ): bool {
         $stmt = $this->db->prepare(
             'SELECT id FROM headcounts
-             WHERE recorded_on = ? AND shift = ? AND jail_unit_id = ? AND id <> ?
+             WHERE recorded_on = ? AND shift = ? AND jail_unit_id = ?
+               AND id <> ?
+               AND archived_at IS NULL
              LIMIT 1'
         );
         $stmt->bind_param('ssii', $date, $shift, $jailUnitId, $excludeId);
@@ -213,10 +281,6 @@ class Headcount
        STATS
        ============================================================ */
 
-    /**
-     * Expected count = number of In Custody PDLs in the given unit
-     * (or all units if 0).
-     */
     public function computeExpected(int $jailUnitId = 0): int
     {
         $sql = "SELECT COUNT(*) AS c FROM inmates WHERE custody_status = 'In Custody'";
@@ -227,14 +291,10 @@ class Headcount
         return (int) ($result->fetch_assoc()['c'] ?? 0);
     }
 
-    /**
-     * Returns the three shifts' status for a given date & unit.
-     * e.g. ['Morning' => 'submitted', 'Afternoon' => 'pending', 'Night' => 'upcoming']
-     */
     public function shiftStatusForToday(int $jailUnitId, string $date): array
     {
         $sql = 'SELECT shift, status FROM headcounts
-                WHERE recorded_on = ?';
+                WHERE recorded_on = ? AND archived_at IS NULL';
         if ($jailUnitId > 0) {
             $sql .= ' AND jail_unit_id = ' . $jailUnitId;
         }
@@ -250,7 +310,6 @@ class Headcount
             $byShift[$r['shift']] = $r['status'];
         }
 
-        // Determine which shifts are pending based on current hour
         $hour = (int) date('G');
         $currentShift = 'Night';
         if ($hour >= 6 && $hour < 14)  $currentShift = 'Morning';
@@ -261,7 +320,6 @@ class Headcount
             if (isset($byShift[$s])) {
                 $out[$s] = strtolower($byShift[$s]);
             } else {
-                // Pending if we're currently in this shift or past it
                 $order = ['Morning' => 1, 'Afternoon' => 2, 'Night' => 3];
                 $out[$s] = ($order[$s] <= $order[$currentShift]) ? 'pending' : 'upcoming';
             }
