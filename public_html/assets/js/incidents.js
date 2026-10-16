@@ -490,11 +490,7 @@
 
   if (modal) {
     modal.addEventListener('click', function (e) {
-      if (e.target === modal) closeModal();
       if (e.target.closest('[data-incident-close]')) closeModal();
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !modal.classList.contains('is-hidden')) closeModal();
     });
   }
 

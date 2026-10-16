@@ -4,8 +4,10 @@
   var form = document.getElementById('inmateForm');
   if (!form) return;
 
-  var errorBox = document.getElementById('inmateFormError');
-  var saveBtn  = document.getElementById('inmateSaveBtn');
+  var modal     = document.getElementById('inmateCreateModal');
+  var openBtn   = document.getElementById('inmateCreateBtn');
+  var errorBox  = document.getElementById('inmateFormError');
+  var saveBtn   = document.getElementById('inmateSaveBtn');
 
   /* ============================================================
      SEARCHABLE SELECT INSTANCES
@@ -90,7 +92,6 @@
   var sentenceBadge  = document.getElementById('sentenceBadge');
   var sentenceReset  = document.getElementById('sentenceResetBtn');
 
-  // Cached auto values so the reset button can restore them
   var lastAutoSentence = null;
   var lastAutoMin      = null;
   var lastAutoMax      = null;
@@ -116,14 +117,12 @@
       var years = (offense.min_years === offense.max_years)
         ? offense.min_years + ' yr' + (offense.min_years === 1 ? '' : 's')
         : offense.min_years + '–' + offense.max_years + ' yrs';
-
       text = text ? text + ' (' + years + ')' : years;
     }
 
     sentenceInput.value = text;
     sentenceMin.value = hasMin ? offense.min_years : '';
     sentenceMax.value = hasMax ? offense.max_years : '';
-
     lastAutoSentence = text;
     lastAutoMin = hasMin ? offense.min_years : null;
     lastAutoMax = hasMax ? offense.max_years : null;
@@ -133,7 +132,6 @@
 
   function updateSentenceBadge() {
     if (!sentenceBadge) return;
-
     if (sentenceManual.value === '1' && sentenceInput.value.trim() !== '') {
       sentenceBadge.hidden = false;
       sentenceBadge.textContent = 'manual';
@@ -158,7 +156,6 @@
     });
   }
 
-  // NEW: min/max input flips the sentence to "manual"
   if (sentenceMin) {
     sentenceMin.addEventListener('input', function () {
       sentenceManual.value = '1';
@@ -178,10 +175,8 @@
       if (lastAutoSentence !== null) {
         sentenceInput.value = lastAutoSentence;
         sentenceManual.value = '0';
-        if (lastAutoMin !== null) sentenceMin.value = lastAutoMin;
-        else sentenceMin.value = '';
-        if (lastAutoMax !== null) sentenceMax.value = lastAutoMax;
-        else sentenceMax.value = '';
+        if (lastAutoMin !== null) sentenceMin.value = lastAutoMin; else sentenceMin.value = '';
+        if (lastAutoMax !== null) sentenceMax.value = lastAutoMax; else sentenceMax.value = '';
         updateSentenceBadge();
       }
     });
@@ -250,7 +245,6 @@
   function loadMunicipalities(province) {
     municipalitySelect.setDisabled(true);
     municipalitySelect.setItems([]);
-
     api('municipalities', { province: province }).then(function (data) {
       municipalitySelect.setItems(data.municipalities.map(function (m) {
         return { value: m.id, label: m.name };
@@ -262,7 +256,6 @@
   function loadBarangays(municipalityId) {
     barangaySelect.setDisabled(true);
     barangaySelect.setItems([]);
-
     api('barangays', { municipality_id: municipalityId }).then(function (data) {
       barangaySelect.setItems(data.barangays.map(function (b) {
         return { value: b.id, label: b.name };
@@ -293,6 +286,69 @@
       document.getElementById('inmateOffenseId').value = o.id;
       applyAutoSentence(o);
     }).catch(function (err) { console.error(err); });
+  }
+
+  /* ============================================================
+     MODAL OPEN / CLOSE
+     ============================================================ */
+
+  function openModal() {
+    if (!modal) return;
+
+    form.reset();
+    errorBox.hidden = true;
+    errorBox.textContent = '';
+
+    jailUnitSelect.clear();
+    provinceSelect.clear();
+    municipalitySelect.clear();
+    municipalitySelect.setItems([]);
+    municipalitySelect.setDisabled(true);
+    barangaySelect.clear();
+    barangaySelect.setItems([]);
+    barangaySelect.setDisabled(true);
+    offenseSelect.clear();
+
+    document.getElementById('inmateJailUnitId').value = '';
+    document.getElementById('inmateMunicipalityId').value = '';
+    document.getElementById('inmateBarangayId').value = '';
+    document.getElementById('inmateOffenseId').value = '';
+    document.getElementById('inmateClassification').value = '';
+    document.getElementById('inmateCommittedAt').value = '';
+    document.getElementById('inmateIsDrugCase').checked = false;
+
+    sentenceMin.value = '';
+    sentenceMax.value = '';
+    sentenceManual.value = '0';
+    lastAutoSentence = null;
+    lastAutoMin = null;
+    lastAutoMax = null;
+    updateSentenceBadge();
+
+    // Preload the auto-generated numbers
+    loadNextPdl();
+    loadNextCase();
+
+    modal.classList.remove('is-hidden');
+    document.body.classList.add('modal-open');
+    setTimeout(function () {
+      document.getElementById('inmateFirstName').focus();
+    }, 50);
+  }
+
+  function closeModal() {
+    if (!modal) return;
+    modal.classList.add('is-hidden');
+    document.body.classList.remove('modal-open');
+  }
+
+  if (openBtn) openBtn.addEventListener('click', openModal);
+
+  // Strict close — only via explicit buttons
+  if (modal) {
+    modal.addEventListener('click', function (e) {
+      if (e.target.closest('[data-inmate-create-close]')) closeModal();
+    });
   }
 
   /* ============================================================
@@ -345,7 +401,6 @@
       return;
     }
 
-    // NEW: validate min ≤ max when both are provided
     var minVal = parseFloat(payload.sentence_years_min);
     var maxVal = parseFloat(payload.sentence_years_max);
     if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) {
@@ -377,41 +432,14 @@
         return data;
       });
     }).then(function () {
+      closeModal();
       window.showSuccess({
         title: 'Inmate Saved',
         message: 'Record ' + payload.inmate_number + ' has been created successfully.'
       });
 
-      form.reset();
-
-      jailUnitSelect.clear();
-      provinceSelect.clear();
-      municipalitySelect.clear();
-      municipalitySelect.setItems([]);
-      municipalitySelect.setDisabled(true);
-      barangaySelect.clear();
-      barangaySelect.setItems([]);
-      barangaySelect.setDisabled(true);
-      offenseSelect.clear();
-
-      document.getElementById('inmateJailUnitId').value = '';
-      document.getElementById('inmateMunicipalityId').value = '';
-      document.getElementById('inmateBarangayId').value = '';
-      document.getElementById('inmateOffenseId').value = '';
-      document.getElementById('inmateClassification').value = '';
-      document.getElementById('inmateCommittedAt').value = '';
-      document.getElementById('inmateIsDrugCase').checked = false;
-
-      sentenceMin.value = '';
-      sentenceMax.value = '';
-      sentenceManual.value = '0';
-      lastAutoSentence = null;
-      lastAutoMin = null;
-      lastAutoMax = null;
-      updateSentenceBadge();
-
-      loadNextPdl();
-      loadNextCase();
+      // Notify the list to refresh
+      document.dispatchEvent(new CustomEvent('inmates:changed'));
     }).catch(function (err) {
       errorBox.textContent = err.message;
       errorBox.hidden = false;
@@ -425,8 +453,6 @@
      INITIAL LOAD
      ============================================================ */
 
-  loadNextPdl();
-  loadNextCase();
   loadJailUnits();
   loadProvinces();
   loadOffenses();

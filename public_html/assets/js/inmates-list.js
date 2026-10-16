@@ -1095,4 +1095,8 @@
   if (section.classList.contains('is-visible')) {
     load();
   }
+
+  document.addEventListener('inmates:changed', function () {
+    load(true);
+  });
 })();

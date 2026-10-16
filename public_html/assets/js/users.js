@@ -25,6 +25,15 @@
   var phoneInput = document.getElementById("userPhone");
   var phoneHint = document.getElementById("userPhoneHint");
 
+  // All modal input refs — declared once, at the top, before any listener uses them
+  var firstInput = document.getElementById("userFirstName");
+  var lastInput = document.getElementById("userLastName");
+  var usernameInput = document.getElementById("userUsername");
+  var passwordInput = document.getElementById("userPassword");
+  var passwordConfirmInput = document.getElementById("userPasswordConfirm");
+  var passwordHint = document.getElementById("userPasswordHint");
+  var passwordConfirmHint = document.getElementById("userPasswordConfirmHint");
+
   /* ---------- State ---------- */
   var users = [];
   var loaded = false;
@@ -43,6 +52,36 @@
         if (jailUnitInput) jailUnitInput.value = value || "";
       },
     });
+  }
+
+  /* ============================================================
+     HELPERS
+     ============================================================ */
+
+  /**
+   * Set a <select>'s value. If the value doesn't exist as an <option>,
+   * inject it so historic free-text entries aren't lost.
+   */
+  function setSelectValue(selectEl, value) {
+    if (!selectEl) return;
+    if (!value) {
+      selectEl.value = "";
+      return;
+    }
+    var found = false;
+    for (var i = 0; i < selectEl.options.length; i++) {
+      if (selectEl.options[i].value === value) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      var opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+    selectEl.value = value;
   }
 
   function loadJailUnitFilter() {
@@ -132,10 +171,6 @@
     hintEl.classList.remove("is-error");
     hintEl.classList.add("is-valid");
   }
-
-  /* ============================================================
-     HELPERS
-     ============================================================ */
 
   function esc(v) {
     var d = document.createElement("div");
@@ -334,8 +369,12 @@
     formError.textContent = "";
     usernameTouched = false;
 
+    if (passwordConfirmInput) passwordConfirmInput.value = "";
+
     clearFieldError(emailInput, emailHint, "Optional");
     clearFieldError(phoneInput, phoneHint, "Optional");
+    clearFieldError(passwordInput, passwordHint, "min 8 characters");
+    clearFieldError(passwordConfirmInput, passwordConfirmHint, "retype password");
 
     document.getElementById("userModalTitle").textContent = user
       ? "Edit User"
@@ -357,21 +396,27 @@
       document.getElementById("userCivilStatus").value =
         user.civil_status || "";
       document.getElementById("userEmployeeNo").value = user.employee_no || "";
-      document.getElementById("userPosition").value = user.position || "";
       document.getElementById("userDepartment").value = user.department || "";
       document.getElementById("userDateHired").value = user.date_hired || "";
       document.getElementById("userEmploymentStatus").value =
         user.employment_status || "";
       document.getElementById("userRole").value =
         user.role || "Staff / Officer";
-      document.getElementById("userBjmpRank").value = user.bjmp_rank || "";
-      document.getElementById("userSalaryGrade").value =
-        user.salary_grade || "";
       document.getElementById("userPersonnelType").value =
         user.personnel_type || "";
       document.getElementById("userEligibility").value = user.eligibility || "";
       document.getElementById("userPasswordHint").textContent =
         "leave blank to keep current";
+
+      // Dropdowns: safe-set with fallback injection
+      setSelectValue(
+        document.getElementById("userPosition"),
+        user.position || ""
+      );
+      setSelectValue(
+        document.getElementById("userBjmpRank"),
+        user.bjmp_rank || ""
+      );
 
       if (user.jail_unit_id && jailUnitSelect) {
         jailUnitSelect.setValue(user.jail_unit_id);
@@ -401,14 +446,11 @@
     });
   }
 
+  // Modal only closes via explicit [data-modal-close] buttons (X or Cancel)
+  // — no backdrop click, no Escape key
   if (modal) {
     modal.addEventListener("click", function (e) {
-      if (e.target === modal) closeModal();
       if (e.target.closest("[data-modal-close]")) closeModal();
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && !modal.classList.contains("is-hidden"))
-        closeModal();
     });
   }
 
@@ -417,10 +459,6 @@
       load(true);
     });
   }
-
-  var firstInput = document.getElementById("userFirstName");
-  var lastInput = document.getElementById("userLastName");
-  var usernameInput = document.getElementById("userUsername");
 
   if (firstInput) firstInput.addEventListener("input", syncUsername);
   if (lastInput) lastInput.addEventListener("input", syncUsername);
@@ -463,6 +501,72 @@
     });
   }
 
+  /* ---------- Password confirm live validation ---------- */
+  function updatePasswordConfirmState() {
+    if (!passwordConfirmInput || !passwordInput) return;
+
+    var pw = passwordInput.value;
+    var confirm = passwordConfirmInput.value;
+
+    // Both empty — reset to defaults
+    if (pw === "" && confirm === "") {
+      clearFieldError(passwordInput, passwordHint, "min 8 characters");
+      clearFieldError(
+        passwordConfirmInput,
+        passwordConfirmHint,
+        "retype password"
+      );
+      return;
+    }
+
+    // Password length check
+    if (pw !== "" && pw.length < 8) {
+      showFieldError(
+        passwordInput,
+        passwordHint,
+        "Must be at least 8 characters"
+      );
+    } else if (pw !== "") {
+      showFieldValid(passwordInput, passwordHint, "OK");
+    } else {
+      clearFieldError(passwordInput, passwordHint, "min 8 characters");
+    }
+
+    // Confirm match check
+    if (confirm === "") {
+      clearFieldError(
+        passwordConfirmInput,
+        passwordConfirmHint,
+        "retype password"
+      );
+    } else if (pw !== confirm) {
+      showFieldError(
+        passwordConfirmInput,
+        passwordConfirmHint,
+        "Passwords do not match"
+      );
+    } else if (pw.length >= 8) {
+      showFieldValid(
+        passwordConfirmInput,
+        passwordConfirmHint,
+        "Passwords match"
+      );
+    } else {
+      clearFieldError(
+        passwordConfirmInput,
+        passwordConfirmHint,
+        "retype password"
+      );
+    }
+  }
+
+  if (passwordInput) {
+    passwordInput.addEventListener("input", updatePasswordConfirmState);
+  }
+  if (passwordConfirmInput) {
+    passwordConfirmInput.addEventListener("input", updatePasswordConfirmState);
+  }
+
   /* ============================================================
      SUBMIT FORM
      ============================================================ */
@@ -484,15 +588,14 @@
         sex: document.getElementById("userSex").value,
         civil_status: document.getElementById("userCivilStatus").value,
         employee_no: document.getElementById("userEmployeeNo").value.trim(),
-        position: document.getElementById("userPosition").value.trim(),
+        position: document.getElementById("userPosition").value,
         department: document.getElementById("userDepartment").value.trim(),
         date_hired: document.getElementById("userDateHired").value,
         employment_status: document.getElementById("userEmploymentStatus")
           .value,
         role: document.getElementById("userRole").value,
         password: document.getElementById("userPassword").value,
-        bjmp_rank: document.getElementById("userBjmpRank").value.trim(),
-        salary_grade: document.getElementById("userSalaryGrade").value,
+        bjmp_rank: document.getElementById("userBjmpRank").value,
         personnel_type: document.getElementById("userPersonnelType").value,
         eligibility: document.getElementById("userEligibility").value.trim(),
         jail_unit_id: jailUnitInput ? jailUnitInput.value : "",
@@ -516,6 +619,36 @@
         formError.hidden = false;
         if (phoneInput) phoneInput.focus();
         return;
+      }
+
+      // ---------- Password checks ----------
+      var pw = passwordInput ? passwordInput.value : "";
+      var pwConfirm = passwordConfirmInput ? passwordConfirmInput.value : "";
+
+      // On create, password is required
+      if (!payload.id && pw.length < 8) {
+        formError.textContent = "Password must be at least 8 characters.";
+        formError.hidden = false;
+        if (passwordInput) passwordInput.focus();
+        return;
+      }
+
+      // On update, password is optional — but if filled, must be valid
+      if (payload.id && pw !== "" && pw.length < 8) {
+        formError.textContent = "Password must be at least 8 characters.";
+        formError.hidden = false;
+        if (passwordInput) passwordInput.focus();
+        return;
+      }
+
+      // Confirm must match when either is filled
+      if (pw !== "" || pwConfirm !== "") {
+        if (pw !== pwConfirm) {
+          formError.textContent = "Passwords do not match.";
+          formError.hidden = false;
+          if (passwordConfirmInput) passwordConfirmInput.focus();
+          return;
+        }
       }
 
       var fullName =

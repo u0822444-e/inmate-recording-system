@@ -9,6 +9,11 @@
   var monthInput = document.getElementById('reportMonth');
   var exportBtn  = document.getElementById('reportExportBtn');
 
+  /* ---------- Drill-down modal refs ---------- */
+  var drilldownModal = document.getElementById('reportDrilldownModal');
+  var drilldownBody  = document.getElementById('reportDrilldownBody');
+  var drilldownTitle = document.getElementById('reportDrilldownTitle');
+
   var currentReport = 'actual-population';
   var lastLoaded    = false;
 
@@ -86,6 +91,206 @@
       '<span class="report-footer__label">Percentage:</span> ' +
       '<span class="report-footer__value">' + esc(text) + '</span>' +
     '</footer>';
+  }
+
+  /* ============================================================
+     MAKE MUNICIPALITY ROWS CLICKABLE
+     Call after setting output.innerHTML, only for reports with municipality.
+     ============================================================ */
+
+  function makeMunicipalityRowsClickable() {
+    if (!output) return;
+    var rows = output.querySelectorAll('.report-table tbody tr');
+    rows.forEach(function (tr) {
+      var firstCell = tr.querySelector('td:first-child');
+      if (!firstCell) return;
+
+      // Add a class for styling
+      tr.classList.add('report-row--clickable');
+
+      // Add a small caret icon inside the first cell
+      var originalText = firstCell.textContent.trim();
+      firstCell.innerHTML =
+        '<span class="report-row__label">' +
+          esc(originalText) +
+          '<i class="bi bi-chevron-right report-row__caret" aria-hidden="true"></i>' +
+        '</span>';
+
+      tr.addEventListener('click', function () {
+        openDrilldown(originalText);
+      });
+    });
+  }
+
+  /* ============================================================
+     DRILLDOWN MODAL
+     ============================================================ */
+
+  function openDrilldown(municipalityName) {
+    if (!drilldownModal || !drilldownBody) return;
+
+    var action = currentReport === 'escorts'
+      ? 'escorts-by-barangay'
+      : 'actual-population-by-barangay';
+
+    // Set a sensible title while loading
+    if (drilldownTitle) {
+      drilldownTitle.textContent = 'Barangays of ' + municipalityName;
+    }
+
+    drilldownBody.innerHTML = '<div class="data-table__empty">Loading…</div>';
+    drilldownModal.classList.remove('is-hidden');
+    document.body.classList.add('modal-open');
+
+    var params = { municipality: municipalityName };
+    if (action === 'escorts-by-barangay' && monthInput) {
+      params.month = monthInput.value;
+    }
+
+    api(action, params).then(function (data) {
+      if (data.meta && data.meta.title && drilldownTitle) {
+        drilldownTitle.textContent = data.meta.title;
+      }
+      renderBarangayReport(data);
+    }).catch(function (err) {
+      drilldownBody.innerHTML = '<div class="data-table__empty">' + esc(err.message) + '</div>';
+    });
+  }
+
+  function closeDrilldown() {
+    if (!drilldownModal) return;
+    drilldownModal.classList.add('is-hidden');
+    document.body.classList.remove('modal-open');
+  }
+
+  // Modal only closes via explicit [data-report-drilldown-close] buttons
+  if (drilldownModal) {
+    drilldownModal.addEventListener('click', function (e) {
+      if (e.target.closest('[data-report-drilldown-close]')) closeDrilldown();
+    });
+  }
+
+  /* ============================================================
+     RENDER BARANGAY REPORT (drilldown)
+     Reuses the same column structure as the municipality report.
+     ============================================================ */
+
+  function renderBarangayReport(data) {
+    var rows   = data.rows   || [];
+    var totals = data.totals || {};
+
+    var html = renderReportHeader(data.meta);
+
+    if (!rows.length) {
+      drilldownBody.innerHTML = html +
+        '<div class="data-table__empty">No barangay records for this municipality.</div>';
+      return;
+    }
+
+    if (currentReport === 'escorts') {
+      // Escorts drilldown — same 17-column layout, first col is "Barangay"
+      var purposes = [
+        { key: 'court',      label: 'Court' },
+        { key: 'hospital',   label: 'Hospital' },
+        { key: 'drug_exam',  label: 'Drug Exam' },
+        { key: 'rehab',      label: 'Rehab' },
+        { key: 'inquest',    label: 'Inquest' },
+        { key: 'transfer',   label: 'Transfer' },
+        { key: 'visitation', label: 'Visitation' },
+        { key: 'other',      label: 'Other' },
+      ];
+
+      html += '<div class="table-wrap report-table__wrap">' +
+        '<table class="report-table report-table--actual"><thead>' +
+        '<tr><th rowspan="2">Barangay</th>';
+      purposes.forEach(function (p) {
+        html += '<th colspan="2">' + esc(p.label) + '</th>';
+      });
+      html += '<th rowspan="2" class="ta-right">Total</th></tr><tr>';
+      purposes.forEach(function () {
+        html += '<th>M</th><th>F</th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      rows.forEach(function (r) {
+        html += '<tr><td>' + esc(r.barangay) + '</td>';
+        purposes.forEach(function (p) {
+          html += '<td class="ta-right">' + num(r[p.key + '_male']) + '</td>' +
+                  '<td class="ta-right">' + num(r[p.key + '_female']) + '</td>';
+        });
+        html += '<td class="ta-right"><strong>' + num(r.total) + '</strong></td></tr>';
+      });
+
+      html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>';
+      purposes.forEach(function (p) {
+        html += '<td class="ta-right">' + num(totals[p.key + '_male']) + '</td>' +
+                '<td class="ta-right">' + num(totals[p.key + '_female']) + '</td>';
+      });
+      html += '<td class="ta-right">' + num(totals.total) + '</td></tr></tfoot></table></div>';
+
+      drilldownBody.innerHTML = html;
+      return;
+    }
+
+    // Default: Actual Population drilldown (barangay version)
+    html +=
+      '<div class="table-wrap report-table__wrap">' +
+      '<table class="report-table report-table--actual">' +
+        '<thead>' +
+          '<tr>' +
+            '<th rowspan="3">Barangay</th>' +
+            '<th colspan="2" rowspan="2">Detainee</th>' +
+            '<th rowspan="2">Total<br>Detainees</th>' +
+            '<th colspan="8">Sentenced</th>' +
+            '<th rowspan="2">Total<br>Sentenced</th>' +
+            '<th rowspan="2">Grand<br>Total</th>' +
+          '</tr>' +
+          '<tr>' +
+            '<th colspan="2">Municipal</th><th colspan="2">City</th>' +
+            '<th colspan="2">Provincial</th><th colspan="2">Insular</th>' +
+          '</tr>' +
+          '<tr>' +
+            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
+            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
+          '</tr>' +
+        '</thead><tbody>';
+
+    rows.forEach(function (r) {
+      html += '<tr>' +
+        '<td>' + esc(r.barangay) + '</td>' +
+        '<td class="ta-right">' + num(r.detainee_male) + '</td>' +
+        '<td class="ta-right">' + num(r.detainee_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.detainee_total) + '</strong></td>' +
+        '<td class="ta-right">' + num(r.municipal_male) + '</td>' +
+        '<td class="ta-right">' + num(r.municipal_female) + '</td>' +
+        '<td class="ta-right">' + num(r.city_male) + '</td>' +
+        '<td class="ta-right">' + num(r.city_female) + '</td>' +
+        '<td class="ta-right">' + num(r.provincial_male) + '</td>' +
+        '<td class="ta-right">' + num(r.provincial_female) + '</td>' +
+        '<td class="ta-right">' + num(r.insular_male) + '</td>' +
+        '<td class="ta-right">' + num(r.insular_female) + '</td>' +
+        '<td class="ta-right"><strong>' + num(r.sentenced_total) + '</strong></td>' +
+        '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
+        '</tr>';
+    });
+
+    html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
+      '<td class="ta-right">' + num(totals.detainee_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.detainee_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.detainee_total) + '</td>' +
+      '<td class="ta-right">' + num(totals.municipal_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.municipal_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.city_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.city_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.provincial_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.provincial_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.insular_male) + '</td>' +
+      '<td class="ta-right">' + num(totals.insular_female) + '</td>' +
+      '<td class="ta-right">' + num(totals.sentenced_total) + '</td>' +
+      '<td class="ta-right">' + num(totals.grand_total) + '</td>' +
+      '</tr></tfoot></table></div>';
+
+    drilldownBody.innerHTML = html;
   }
 
   /* ============================================================
@@ -503,6 +708,9 @@
     }
 
     output.innerHTML = html;
+
+    // ⬇️ NEW: make municipality rows clickable
+    makeMunicipalityRowsClickable();
   }
 
   /* ============================================================
@@ -559,6 +767,9 @@
     html += '<td class="ta-right">' + num(totals.total) + '</td></tr></tfoot></table></div>';
 
     output.innerHTML = html;
+
+    // ⬇️ NEW: make municipality rows clickable
+    makeMunicipalityRowsClickable();
   }
 
   /* ============================================================

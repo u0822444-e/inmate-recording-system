@@ -177,11 +177,7 @@
 
   if (modal) {
     modal.addEventListener('click', function (e) {
-      if (e.target === modal) closeModal();
       if (e.target.closest('[data-jail-unit-close]')) closeModal();
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !modal.classList.contains('is-hidden')) closeModal();
     });
   }
 
