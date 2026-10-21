@@ -72,6 +72,26 @@ $bjmpRankOptions = $__opts['bjmp_ranks'];
                 </fieldset>
 
                 <fieldset class="user-form-section">
+                    <legend>Profile Photo</legend>
+                    <div class="avatar-editor" id="userAvatarEditor">
+                        <div class="avatar-editor__preview">
+                            <img id="userAvatarPreview" src="" alt="" hidden>
+                            <div id="userAvatarInitials" class="avatar-editor__initials">?</div>
+                        </div>
+                        <div class="avatar-editor__controls">
+                            <label class="btn-secondary btn-sm" for="userAvatarInput">
+                                <i class="bi bi-image"></i> Choose image
+                            </label>
+                            <input type="file" id="userAvatarInput" accept="image/jpeg,image/png,image/webp" hidden>
+                            <button type="button" class="btn-secondary btn-sm" id="userAvatarRemove" hidden>
+                                <i class="bi bi-trash"></i> Remove
+                            </button>
+                            <span class="field__hint">JPG, PNG, or WebP. Max 2 MB.</span>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="user-form-section">
                     <legend>Contact</legend>
                     <div class="form-grid-row">
                         <label class="field">

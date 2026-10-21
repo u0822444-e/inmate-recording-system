@@ -53,6 +53,7 @@ $isUsersActive = ($currentSection ?? '') === 'users';
             <table class="data-table">
                 <thead>
                     <tr>
+                        <th style="width: 44px;"></th> 
                         <th>Name</th>
                         <th>Jail Unit</th>
                         <th>Employee No.</th>

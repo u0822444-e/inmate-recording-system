@@ -795,4 +795,9 @@
   loadJailUnitFilter();
   loadAllInmates();
   if (section.classList.contains('is-visible')) load();
+
+    document.addEventListener("visitors:open-modal", function () {
+    var btn = document.getElementById("visitorCreateBtn");
+    if (btn) btn.click();
+  });
 })();

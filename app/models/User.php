@@ -35,15 +35,16 @@ class User
         int $jailUnitId = 0
     ): array {
         $sql = 'SELECT u.id, u.username, u.jail_unit_id,
-                   u.first_name, u.middle_name, u.last_name, u.full_name,
-                   u.email, u.phone, u.birthdate, u.sex, u.civil_status,
-                   u.employee_no, u.`position`, u.`rank`, u.department, u.date_hired, u.employment_status,
-                   u.bjmp_rank, u.personnel_type, u.eligibility,
-                   u.role, u.is_active, u.created_at, u.archived_at,
-                   j.name AS jail_unit_name
-            FROM users u
-            LEFT JOIN jail_units j ON j.id = u.jail_unit_id
-            WHERE 1 = 1';
+           u.first_name, u.middle_name, u.last_name, u.full_name,
+           u.email, u.phone, u.birthdate, u.sex, u.civil_status,
+           u.employee_no, u.`position`, u.`rank`, u.department, u.date_hired, u.employment_status,
+           u.bjmp_rank, u.personnel_type, u.eligibility,
+           u.avatar_path,
+           u.role, u.is_active, u.created_at, u.archived_at,
+           j.name AS jail_unit_name
+        FROM users u
+        LEFT JOIN jail_units j ON j.id = u.jail_unit_id
+        WHERE 1 = 1';
 
         $params = [];
         $types = '';
@@ -96,6 +97,26 @@ class User
         return $rows;
     }
 
+    public function updateAvatar(int $id, ?string $relativePath): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE users SET avatar_path = ?, avatar_updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+        );
+        $stmt->bind_param('si', $relativePath, $id);
+        $stmt->execute();
+        $stmt->close();
+    }
+
+    public function currentAvatar(int $id): ?string
+    {
+        $stmt = $this->db->prepare('SELECT avatar_path FROM users WHERE id = ? LIMIT 1');
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row['avatar_path'] ?? null;
+    }
+
     public function find(int $id): ?array
     {
         $stmt = $this->db->prepare(
@@ -115,6 +136,7 @@ class User
     {
         $hash = password_hash($data['password'], PASSWORD_DEFAULT);
 
+        // FIX: Matched 22 params to 22 placeholders (plus hardcoded 1 and NULL)
         $stmt = $this->db->prepare(
             'INSERT INTO users
              (username, jail_unit_id, first_name, middle_name, last_name, full_name,
@@ -122,7 +144,7 @@ class User
               employee_no, `position`, `rank`, department, date_hired, employment_status,
               bjmp_rank, personnel_type, eligibility,
               role, password, is_active, archived_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL)'
         );
 
         $params = [
@@ -150,6 +172,7 @@ class User
             $hash,
         ];
 
+        // Build dynamic types
         $types = '';
         foreach ($params as $p) {
             $types .= is_int($p) ? 'i' : 's';

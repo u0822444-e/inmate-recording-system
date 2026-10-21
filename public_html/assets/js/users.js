@@ -25,7 +25,6 @@
   var phoneInput = document.getElementById("userPhone");
   var phoneHint = document.getElementById("userPhoneHint");
 
-  // All modal input refs — declared once, at the top, before any listener uses them
   var firstInput = document.getElementById("userFirstName");
   var lastInput = document.getElementById("userLastName");
   var usernameInput = document.getElementById("userUsername");
@@ -34,10 +33,20 @@
   var passwordHint = document.getElementById("userPasswordHint");
   var passwordConfirmHint = document.getElementById("userPasswordConfirmHint");
 
+  /* ---------- Avatar refs ---------- */
+  var avatarInput = document.getElementById("userAvatarInput");
+  var avatarPreview = document.getElementById("userAvatarPreview");
+  var avatarInitials = document.getElementById("userAvatarInitials");
+  var avatarRemove = document.getElementById("userAvatarRemove");
+
   /* ---------- State ---------- */
   var users = [];
   var loaded = false;
   var scope = "active";
+
+  // Avatar pending state — file chosen in the modal but not yet uploaded
+  var pendingAvatarFile = null;
+  var removeAvatarFlag = false;
 
   /* ---------- Jail unit SearchableSelect ---------- */
   var jailUnitSelect = null;
@@ -58,10 +67,6 @@
      HELPERS
      ============================================================ */
 
-  /**
-   * Set a <select>'s value. If the value doesn't exist as an <option>,
-   * inject it so historic free-text entries aren't lost.
-   */
   function setSelectValue(selectEl, value) {
     if (!selectEl) return;
     if (!value) {
@@ -180,8 +185,14 @@
 
   function api(action, options) {
     options = options || {};
+    var url = "index.php?route=users&action=" + encodeURIComponent(action.split('&')[0]);
+    var parts = action.split('&');
+    if (parts.length > 1) {
+        url += "&" + parts.slice(1).join('&');
+    }
+
     return fetch(
-      "index.php?route=users&action=" + action,
+      url,
       Object.assign(
         {
           credentials: "same-origin",
@@ -190,11 +201,62 @@
         options
       )
     ).then(function (r) {
-      return r.json().then(function (data) {
-        if (!r.ok || !data.success) throw new Error(data.message || "Error");
-        return data;
+      return r.text().then(function(text) {
+          try {
+              var data = JSON.parse(text);
+              if (!r.ok || !data.success) throw new Error(data.message || "Error");
+              return data;
+          } catch (e) {
+              console.error("Server returned non-JSON:", text);
+              throw new Error("Server error. Check console for details.");
+          }
       });
     });
+  }
+
+  /* ============================================================
+     AVATAR HELPERS
+     ============================================================ */
+
+  function initialsOf(user) {
+    var f = user && user.first_name ? user.first_name[0] : "";
+    var l = user && user.last_name ? user.last_name[0] : "";
+    return (f + l).toUpperCase() || "?";
+  }
+
+  function updateAvatarPreview(path, user) {
+    if (!avatarPreview || !avatarInitials) return;
+    if (path) {
+      avatarPreview.src = path;
+      avatarPreview.hidden = false;
+      avatarInitials.hidden = true;
+    } else {
+      avatarPreview.hidden = true;
+      avatarPreview.removeAttribute("src");
+      avatarInitials.hidden = false;
+      avatarInitials.textContent = initialsOf(user);
+    }
+  }
+
+  function updateAvatarPreviewFromFile(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      if (avatarPreview) {
+        avatarPreview.src = e.target.result;
+        avatarPreview.hidden = false;
+      }
+      if (avatarInitials) avatarInitials.hidden = true;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function resetAvatarState(user) {
+    pendingAvatarFile = null;
+    removeAvatarFlag = false;
+    if (avatarInput) avatarInput.value = "";
+    updateAvatarPreview(user ? user.avatar_path : null, user);
+    if (avatarRemove) avatarRemove.hidden = !(user && user.avatar_path);
   }
 
   /* ============================================================
@@ -220,6 +282,10 @@
           u.full_name ||
           ((u.first_name || "") + " " + (u.last_name || "")).trim() ||
           u.username;
+
+        var avatarHtml = u.avatar_path
+          ? '<img class="avatar avatar--sm" src="' + esc(u.avatar_path) + '" alt="">'
+          : '<span class="avatar avatar--sm avatar--initials">' + esc(initialsOf(u)) + '</span>';
 
         var actions;
         if (scope === "archived") {
@@ -247,6 +313,7 @@
           '<tr data-id="' +
           u.id +
           '">' +
+          '<td class="avatar-cell">' + avatarHtml + '</td>' +
           "<td><strong>" +
           esc(name) +
           "</strong><br>" +
@@ -408,7 +475,6 @@
       document.getElementById("userPasswordHint").textContent =
         "leave blank to keep current";
 
-      // Dropdowns: safe-set with fallback injection
       setSelectValue(
         document.getElementById("userPosition"),
         user.position || ""
@@ -429,6 +495,9 @@
         "min 8 characters";
     }
 
+    // Reset avatar state to match this user (or empty for new)
+    resetAvatarState(user);
+
     modal.classList.remove("is-hidden");
     document.body.classList.add("modal-open");
     document.getElementById("userFirstName").focus();
@@ -438,6 +507,7 @@
     if (!modal) return;
     modal.classList.add("is-hidden");
     document.body.classList.remove("modal-open");
+    resetAvatarState(null);
   }
 
   if (createBtn) {
@@ -446,8 +516,6 @@
     });
   }
 
-  // Modal only closes via explicit [data-modal-close] buttons (X or Cancel)
-  // — no backdrop click, no Escape key
   if (modal) {
     modal.addEventListener("click", function (e) {
       if (e.target.closest("[data-modal-close]")) closeModal();
@@ -501,6 +569,44 @@
     });
   }
 
+  /* ---------- Avatar input wiring ---------- */
+  if (avatarInput) {
+    avatarInput.addEventListener("change", function () {
+      var f = avatarInput.files && avatarInput.files[0];
+      if (!f) return;
+
+      if (f.size > 2 * 1024 * 1024) {
+        formError.textContent = "Avatar must be 2 MB or smaller.";
+        formError.hidden = false;
+        avatarInput.value = "";
+        return;
+      }
+      var allowed = ["image/jpeg", "image/png", "image/webp"];
+      if (allowed.indexOf(f.type) === -1) {
+        formError.textContent = "Only JPG, PNG, or WebP images are allowed.";
+        formError.hidden = false;
+        avatarInput.value = "";
+        return;
+      }
+
+      formError.hidden = true;
+      pendingAvatarFile = f;
+      removeAvatarFlag = false;
+      updateAvatarPreviewFromFile(f);
+      if (avatarRemove) avatarRemove.hidden = false;
+    });
+  }
+
+  if (avatarRemove) {
+    avatarRemove.addEventListener("click", function () {
+      pendingAvatarFile = null;
+      removeAvatarFlag = true;
+      if (avatarInput) avatarInput.value = "";
+      updateAvatarPreview(null, null);
+      avatarRemove.hidden = true;
+    });
+  }
+
   /* ---------- Password confirm live validation ---------- */
   function updatePasswordConfirmState() {
     if (!passwordConfirmInput || !passwordInput) return;
@@ -508,7 +614,6 @@
     var pw = passwordInput.value;
     var confirm = passwordConfirmInput.value;
 
-    // Both empty — reset to defaults
     if (pw === "" && confirm === "") {
       clearFieldError(passwordInput, passwordHint, "min 8 characters");
       clearFieldError(
@@ -519,7 +624,6 @@
       return;
     }
 
-    // Password length check
     if (pw !== "" && pw.length < 8) {
       showFieldError(
         passwordInput,
@@ -532,7 +636,6 @@
       clearFieldError(passwordInput, passwordHint, "min 8 characters");
     }
 
-    // Confirm match check
     if (confirm === "") {
       clearFieldError(
         passwordConfirmInput,
@@ -565,6 +668,47 @@
   }
   if (passwordConfirmInput) {
     passwordConfirmInput.addEventListener("input", updatePasswordConfirmState);
+  }
+
+  /* ============================================================
+     AVATAR UPLOAD (multipart, after save)
+     ============================================================ */
+
+  function uploadAvatar(savedId) {
+    // Remove-only path (JSON)
+    if (removeAvatarFlag && !pendingAvatarFile) {
+      return fetch("index.php?route=users&action=avatar", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: savedId, remove: true }),
+      }).then(function (r) {
+        return r.json().then(function (d) {
+          if (!r.ok || !d.success) throw new Error(d.message || "Avatar remove failed.");
+          return d;
+        });
+      });
+    }
+
+    // Upload path (multipart)
+    if (pendingAvatarFile) {
+      var fd = new FormData();
+      fd.append("id", String(savedId));
+      fd.append("avatar", pendingAvatarFile);
+      return fetch("index.php?route=users&action=avatar", {
+        method: "POST",
+        credentials: "same-origin",
+        body: fd,
+      }).then(function (r) {
+        return r.json().then(function (d) {
+          if (!r.ok || !d.success) throw new Error(d.message || "Avatar upload failed.");
+          return d;
+        });
+      });
+    }
+
+    // No avatar change
+    return Promise.resolve();
   }
 
   /* ============================================================
@@ -621,11 +765,9 @@
         return;
       }
 
-      // ---------- Password checks ----------
       var pw = passwordInput ? passwordInput.value : "";
       var pwConfirm = passwordConfirmInput ? passwordConfirmInput.value : "";
 
-      // On create, password is required
       if (!payload.id && pw.length < 8) {
         formError.textContent = "Password must be at least 8 characters.";
         formError.hidden = false;
@@ -633,7 +775,6 @@
         return;
       }
 
-      // On update, password is optional — but if filled, must be valid
       if (payload.id && pw !== "" && pw.length < 8) {
         formError.textContent = "Password must be at least 8 characters.";
         formError.hidden = false;
@@ -641,7 +782,6 @@
         return;
       }
 
-      // Confirm must match when either is filled
       if (pw !== "" || pwConfirm !== "") {
         if (pw !== pwConfirm) {
           formError.textContent = "Passwords do not match.";
@@ -673,15 +813,21 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
-        .then(function () {
+        .then(function (res) {
+          var savedId = payload.id || (res && res.id) || 0;
+          return uploadAvatar(savedId).then(function () {
+            return { savedId: savedId };
+          });
+        })
+        .then(function (info) {
           closeModal();
+          var msg = fullName + " has been " + (payload.id ? "updated" : "created");
+          if (pendingAvatarFile) msg += " with a new avatar";
+          if (removeAvatarFlag) msg += " (avatar removed)";
+          msg += ".";
           window.showSuccess({
             title: payload.id ? "User Updated" : "User Created",
-            message:
-              fullName +
-              " has been " +
-              (payload.id ? "updated" : "created") +
-              " successfully.",
+            message: msg,
           });
           load(true);
         })
@@ -884,4 +1030,9 @@
   loadJailUnitFilter();
   loadJailUnits();
   if (section.classList.contains("is-visible")) load();
+
+  document.addEventListener("users:open-modal", function () {
+    var btn = document.getElementById("userCreateBtn");
+    if (btn) btn.click();
+  });
 })();

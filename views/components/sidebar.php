@@ -83,6 +83,11 @@ $recordsOpen = in_array($current, $recordsSections, true);
                     data-section="jail-units">
                 <i class="bi bi-building"></i><span>Jail Units</span>
             </button>
+            <button type="button"
+                    class="sidebar-nav__item <?= $current === 'activity-logs' ? 'is-active' : '' ?>"
+                    data-section="activity-logs">
+                <i class="bi bi-shield-check"></i><span>Activity Logs</span>
+            </button>
 
         <?php else: ?>
 

@@ -7,7 +7,9 @@ use mysqli;
 
 class Dashboard
 {
-    public function __construct(private mysqli $db) {}
+    public function __construct(private mysqli $db)
+    {
+    }
 
     /* ============================================================
        ADMIN KPIs
@@ -21,7 +23,6 @@ class Dashboard
             );
             return (int) ($result->fetch_assoc()['c'] ?? 0);
         } catch (\Throwable $e) {
-            error_log('totalPdl: ' . $e->getMessage());
             return 0;
         }
     }
@@ -62,7 +63,6 @@ class Dashboard
             );
             return (int) ($result->fetch_assoc()['c'] ?? 0);
         } catch (\Throwable $e) {
-            error_log('activeUsers: ' . $e->getMessage());
             return 0;
         }
     }
@@ -84,7 +84,6 @@ class Dashboard
             $stmt->close();
             return $count;
         } catch (\Throwable $e) {
-            error_log('myEntriesToday: ' . $e->getMessage());
             return 0;
         }
     }
@@ -106,7 +105,6 @@ class Dashboard
         }
     }
 
-    // FIX: incidents table uses reported_by, not created_by
     public function myIncidentsThisWeek(int $userId): int
     {
         try {
@@ -149,7 +147,8 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         try {
             $stmt = $this->db->prepare(
@@ -163,9 +162,9 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
-        // FIX: visitors table uses full_name, not name
         try {
             $stmt = $this->db->prepare(
                 "SELECT 'visitor' AS kind, id,
@@ -178,7 +177,8 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         try {
             $stmt = $this->db->prepare(
@@ -192,7 +192,8 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         usort($items, fn($a, $b) => strcmp((string) $b['happened_at'], (string) $a['happened_at']));
         $items = array_slice($items, 0, $limit);
@@ -223,7 +224,8 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         try {
             $stmt = $this->db->prepare(
@@ -238,7 +240,8 @@ class Dashboard
             $stmt->execute();
             $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
             $stmt->close();
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         usort($items, fn($a, $b) => strcmp((string) $b['happened_at'], (string) $a['happened_at']));
         $items = array_slice($items, 0, $limit);
@@ -253,8 +256,8 @@ class Dashboard
     public function upcomingEvents(int $limit = 3): array
     {
         $demo = [
-            ['date' => '2026-10-14', 'time' => '09:00', 'title' => 'Court Hearing',  'meta' => 'RTC Ipil · 3 PDL'],
-            ['date' => '2026-10-15', 'time' => '13:00', 'title' => 'Visitation Day',  'meta' => 'Block B · 13:00–17:00'],
+            ['date' => '2026-10-14', 'time' => '09:00', 'title' => 'Court Hearing', 'meta' => 'RTC Ipil · 3 PDL'],
+            ['date' => '2026-10-15', 'time' => '13:00', 'title' => 'Visitation Day', 'meta' => 'Block B · 13:00–17:00'],
             ['date' => '2026-10-18', 'time' => '08:00', 'title' => 'Headcount Audit', 'meta' => 'Region IX · 08:00'],
         ];
         return array_slice($demo, 0, $limit);
@@ -263,6 +266,29 @@ class Dashboard
     /* ============================================================
        ANALYTICS — NEW
        ============================================================ */
+
+    /**
+     * Fills in missing dates in a time series with 0 counts.
+     * This prevents the chart from skipping days when data is missing.
+     */
+    private function fillDateGaps(array $rows, int $days, string $dateKey = 'date', string $countKey = 'count'): array
+    {
+        $byDate = [];
+        foreach ($rows as $r) {
+            $d = substr((string) $r[$dateKey], 0, 10);
+            $byDate[$d] = (int) $r[$countKey];
+        }
+
+        $out = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $d = date('Y-m-d', strtotime("-{$i} days"));
+            $out[] = [
+                $dateKey => $d,
+                $countKey => $byDate[$d] ?? 0,
+            ];
+        }
+        return $out;
+    }
 
     public function populationTrend(int $days = 30): array
     {
@@ -278,12 +304,16 @@ class Dashboard
             $stmt->execute();
             $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
-            return array_map(fn($r) => [
-                'date'  => (string) $r['d'],
+
+            $mapped = array_map(fn($r) => [
+                'date' => (string) $r['d'],
                 'count' => (int) $r['c'],
             ], $rows);
+
+            // Fill in the gaps so the chart has exactly `$days` data points
+            return $this->fillDateGaps($mapped, $days);
         } catch (\Throwable $e) {
-            return [];
+            return $this->fillDateGaps([], $days);
         }
     }
 
@@ -302,12 +332,13 @@ class Dashboard
             $stmt->execute();
             $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
-            return array_map(fn($r) => [
-                'date'  => (string) $r['d'],
+            $mapped = array_map(fn($r) => [
+                'date' => (string) $r['d'],
                 'count' => (int) $r['c'],
             ], $rows);
+            return $this->fillDateGaps($mapped, $days);
         } catch (\Throwable $e) {
-            return [];
+            return $this->fillDateGaps([], $days);
         }
     }
 
@@ -386,12 +417,16 @@ class Dashboard
             $stmt->execute();
             $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
-            return array_map(fn($r) => [
-                'date'  => (string) $r['d'],
+
+            $mapped = array_map(fn($r) => [
+                'date' => (string) $r['d'],
                 'count' => (int) $r['c'],
             ], $rows);
+
+            // Fill in the gaps for visitors too
+            return $this->fillDateGaps($mapped, $days);
         } catch (\Throwable $e) {
-            return [];
+            return $this->fillDateGaps([], $days);
         }
     }
 
@@ -423,8 +458,8 @@ class Dashboard
                  ORDER BY FIELD(severity, 'Low', 'Medium', 'High', 'Critical')"
             );
             return array_map(fn($r) => [
-                'label'    => (string) $r['label'],
-                'open'     => (int) $r['open'],
+                'label' => (string) $r['label'],
+                'open' => (int) $r['open'],
                 'resolved' => (int) $r['resolved'],
             ], $result->fetch_all(MYSQLI_ASSOC));
         } catch (\Throwable $e) {
@@ -477,8 +512,8 @@ class Dashboard
                  ORDER BY j.name"
             );
             return array_map(fn($r) => [
-                'label'  => (string) $r['label'],
-                'male'   => (int) $r['male'],
+                'label' => (string) $r['label'],
+                'male' => (int) $r['male'],
                 'female' => (int) $r['female'],
             ], $result->fetch_all(MYSQLI_ASSOC));
         } catch (\Throwable $e) {
@@ -499,7 +534,7 @@ class Dashboard
                  ORDER BY d ASC"
             );
             return array_map(fn($r) => [
-                'date'  => (string) $r['d'],
+                'date' => (string) $r['d'],
                 'count' => (int) $r['count'],
             ], $result->fetch_all(MYSQLI_ASSOC));
         } catch (\Throwable $e) {
@@ -542,9 +577,9 @@ class Dashboard
                  ORDER BY j.name"
             );
             return array_map(fn($r) => [
-                'unit'      => (string) $r['unit'],
+                'unit' => (string) $r['unit'],
                 'submitted' => (int) $r['submitted'],
-                'required'  => (int) $r['required'],
+                'required' => (int) $r['required'],
             ], $result->fetch_all(MYSQLI_ASSOC));
         } catch (\Throwable $e) {
             return [];
@@ -569,6 +604,136 @@ class Dashboard
                 'month' => (string) $r['ym'],
                 'count' => (int) $r['c'],
             ], $rows);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /* ============================================================
+   STAFF ANALYTICS (Visitors)
+   ============================================================ */
+
+    public function myVisitorsLineTrend(int $userId, int $days = 7): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT DATE(time_in) AS d, COUNT(*) AS c
+                 FROM visitors
+                 WHERE recorded_by = ? AND time_in >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                 GROUP BY DATE(time_in)
+                 ORDER BY d ASC"
+            );
+            $stmt->bind_param('ii', $userId, $days);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            $mapped = array_map(fn($r) => [
+                'date' => (string) $r['d'],
+                'count' => (int) $r['c'],
+            ], $rows);
+            return $this->fillDateGaps($mapped, $days);
+        } catch (\Throwable $e) {
+            return $this->fillDateGaps([], $days);
+        }
+    }
+
+    public function myVisitorsBarChart(int $userId, int $days = 7, string $mode = 'daily'): array
+    {
+        try {
+            $labels = [];
+            $counts = [];
+
+            // Base date filter based on the top tabs (Week/Month/Year)
+            $startDate = date('Y-m-d', strtotime("-{$days} days"));
+
+            if ($mode === 'hourly') {
+                // Group by hour (8 AM to 5 PM) for the selected period
+                $stmt = $this->db->prepare(
+                    "SELECT HOUR(time_in) AS h, COUNT(*) AS c
+                     FROM visitors
+                     WHERE recorded_by = ? AND time_in >= ?
+                     GROUP BY HOUR(time_in)"
+                );
+                $stmt->bind_param('is', $userId, $startDate);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+
+                $byHour = [];
+                foreach ($rows as $r) {
+                    $byHour[(int) $r['h']] = (int) $r['c'];
+                }
+
+                for ($i = 8; $i <= 17; $i++) {
+                    $labels[] = date('g A', mktime($i, 0, 0));
+                    $counts[] = $byHour[$i] ?? 0;
+                }
+
+            } elseif ($mode === 'monthly') {
+                // Group by Month (Jan, Feb, etc.)
+                $stmt = $this->db->prepare(
+                    "SELECT DATE_FORMAT(time_in, '%Y-%m') AS m, COUNT(*) AS c
+                     FROM visitors
+                     WHERE recorded_by = ? AND time_in >= ?
+                     GROUP BY m ORDER BY m ASC"
+                );
+                $stmt->bind_param('is', $userId, $startDate);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+
+                $byMonth = [];
+                foreach ($rows as $r) {
+                    $byMonth[(string) $r['m']] = (int) $r['c'];
+                }
+
+                // Loop through the months in the range
+                for ($i = $days; $i >= 0; $i--) {
+                    $monthStr = date('Y-m', strtotime("-{$i} months"));
+                    if (!isset($byMonth[$monthStr]))
+                        $byMonth[$monthStr] = 0;
+                }
+                ksort($byMonth);
+
+                foreach ($byMonth as $m => $c) {
+                    $labels[] = date('M Y', strtotime($m . '-01'));
+                    $counts[] = $c;
+                }
+
+            } else { // 'daily'
+                // Group by Day (Mon, Tue, etc. or Oct 14, Oct 15)
+                $stmt = $this->db->prepare(
+                    "SELECT DATE(time_in) AS d, COUNT(*) AS c
+                     FROM visitors
+                     WHERE recorded_by = ? AND time_in >= ?
+                     GROUP BY DATE(time_in)"
+                );
+                $stmt->bind_param('is', $userId, $startDate);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+
+                $byDate = [];
+                foreach ($rows as $r) {
+                    $byDate[(string) $r['d']] = (int) $r['c'];
+                }
+
+                for ($i = $days - 1; $i >= 0; $i--) {
+                    $date = date('Y-m-d', strtotime("-{$i} days"));
+                    // Show "Mon" if it's a week, "Oct 14" if it's a month+
+                    $labels[] = $days > 7 ? date('M j', strtotime($date)) : date('D', strtotime($date));
+                    $counts[] = $byDate[$date] ?? 0;
+                }
+            }
+
+            // Package into the format Chart.js expects
+            $out = [];
+            for ($i = 0; $i < count($labels); $i++) {
+                $out[] = ['label' => $labels[$i], 'count' => $counts[$i]];
+            }
+            return $out;
+
         } catch (\Throwable $e) {
             return [];
         }

@@ -28,6 +28,10 @@
   var editError       = document.getElementById('inmateEditError');
   var editSaveBtn     = document.getElementById('inmateEditSaveBtn');
   var editNumberBadge = document.getElementById('inmateEditNumber');
+  
+  var editAvatarPreview = document.getElementById('editAvatarPreview');
+  var editAvatarInput   = document.getElementById('editAvatarInput');
+  var editAvatarBtn     = document.getElementById('editAvatarBtn'); // FIX: Added reference
 
   var editId          = document.getElementById('editInmateId');
   var editInmateNumber = document.getElementById('editInmateNumber');
@@ -176,7 +180,6 @@
   var offenseFilterLoaded = false;
   var jailUnitFilterLoaded = false;
 
-  // Cached auto values so the reset button can restore them
   var editLastAutoSentence = null;
   var editLastAutoMin      = null;
   var editLastAutoMax      = null;
@@ -254,7 +257,7 @@
   }
 
   /* ============================================================
-     ADDRESS FILTER LOADERS
+     LOADERS
      ============================================================ */
 
   function loadFilterProvinces() {
@@ -289,10 +292,6 @@
     }).catch(function (err) { console.error(err); });
   }
 
-  /* ============================================================
-     JAIL UNIT FILTER LOADER
-     ============================================================ */
-
   function loadJailUnitFilter() {
     if (jailUnitFilterLoaded || !jailUnitFilter) return;
 
@@ -307,10 +306,6 @@
     }).catch(function () { /* silent */ });
   }
 
-  /* ============================================================
-     OFFENSE FILTER LOADER
-     ============================================================ */
-
   function loadOffenseFilter() {
     if (offenseFilterLoaded || !offenseFilter) return;
 
@@ -324,10 +319,6 @@
       offenseFilterLoaded = true;
     }).catch(function () { /* silent */ });
   }
-
-  /* ============================================================
-     EDIT MODAL — DEPENDENT LOADERS
-     ============================================================ */
 
   function loadEditMunicipalities(province) {
     editMunicipalitySelect.setDisabled(true);
@@ -362,7 +353,7 @@
   }
 
   /* ============================================================
-     EDIT — SENTENCE AUTO-FILL
+     SENTENCE AUTO-FILL
      ============================================================ */
 
   function applyEditAutoSentence(offense) {
@@ -386,14 +377,12 @@
       var years = (offense.min_years === offense.max_years)
         ? offense.min_years + ' yr' + (offense.min_years === 1 ? '' : 's')
         : offense.min_years + '–' + offense.max_years + ' yrs';
-
       text = text ? text + ' (' + years + ')' : years;
     }
 
     editSentence.value = text;
     editSentenceMin.value = hasMin ? offense.min_years : '';
     editSentenceMax.value = hasMax ? offense.max_years : '';
-
     editLastAutoSentence = text;
     editLastAutoMin = hasMin ? offense.min_years : null;
     editLastAutoMax = hasMax ? offense.max_years : null;
@@ -403,7 +392,6 @@
 
   function updateEditSentenceBadge() {
     if (!editSentenceBadge) return;
-
     if (editSentenceManual.value === '1' && editSentence.value.trim() !== '') {
       editSentenceBadge.hidden = false;
       editSentenceBadge.textContent = 'manual';
@@ -432,7 +420,6 @@
     });
   }
 
-  // NEW: min/max input flips the sentence to "manual"
   if (editSentenceMin) {
     editSentenceMin.addEventListener('input', function () {
       editSentenceManual.value = '1';
@@ -462,7 +449,7 @@
   }
 
   /* ============================================================
-     TABLE RENDER — 5 columns, no release button
+     TABLE RENDER
      ============================================================ */
 
   function renderTable() {
@@ -481,11 +468,15 @@
           '</button>'
         : '';
 
+      var avatarHtml = i.avatar_path 
+        ? '<img src="' + esc(i.avatar_path) + '" alt="" class="cell-avatar" style="object-fit: cover;">'
+        : '<span class="cell-avatar">' + esc(initialsFrom(i)) + '</span>';
+
       return '<tr data-id="' + i.id + '">' +
         '<td><code class="mono-badge">' + esc(i.inmate_number) + '</code></td>' +
         '<td>' +
           '<div class="cell-name">' +
-            '<span class="cell-avatar">' + esc(initialsFrom(i)) + '</span>' +
+            avatarHtml +
             '<div class="cell-name__text">' +
               '<strong>' + esc(i.full_name) + '</strong>' +
               (i.case_reference ? '<small class="meta-text">' + esc(i.case_reference) + '</small>' : '') +
@@ -507,10 +498,6 @@
       '</tr>';
     }).join('');
   }
-
-  /* ============================================================
-     PAGINATION
-     ============================================================ */
 
   function renderPagination() {
     var showing = Math.min(offset + inmates.length, total);
@@ -557,7 +544,7 @@
   }
 
   /* ============================================================
-     DETAIL MODAL — TABBED
+     DETAIL MODAL
      ============================================================ */
 
   function detailItem(label, value, wide) {
@@ -606,6 +593,7 @@
 
     inmatesApi('get', { id: id }).then(function (data) {
       var i = data.inmate;
+      var history = data.history || [];
 
       if (!i) {
         detailBody.innerHTML = '<div class="data-table__empty">No inmate data returned.</div>';
@@ -629,10 +617,14 @@
       }
 
       var isCustody = i.custody_status === 'In Custody';
+      
+      var avatarHtml = i.avatar_path 
+        ? '<img src="' + esc(i.avatar_path) + '" alt="" class="detail-hero__avatar" style="object-fit: cover;">'
+        : '<div class="detail-hero__avatar">' + esc(initialsFrom(i)) + '</div>';
 
       var hero =
         '<div class="detail-hero">' +
-          '<div class="detail-hero__avatar">' + esc(initialsFrom(i)) + '</div>' +
+          avatarHtml +
           '<div class="detail-hero__info">' +
             '<strong>' + esc(fullName || '—') + '</strong>' +
             '<span class="meta-text">' + esc(orDash(i.case_reference)) + '</span>' +
@@ -650,7 +642,7 @@
         detailItem('Custody Status', i.custody_status) +
         detailItem('Admitted', formatDate(i.admission_date));
 
-      var personalRows =
+      var profileRows =
         detailItem('Full Name', fullName, true) +
         detailItem('Sex', i.sex) +
         detailItem('Date of Birth', formatDate(i.date_of_birth)) +
@@ -673,6 +665,26 @@
         detailItem('Classification', i.classification) +
         detailItem('Employee No.', i.employee_no);
 
+      var historyHtml = '';
+      if (!history.length) {
+        historyHtml = '<div class="data-table__empty">No history records found.</div>';
+      } else {
+        historyHtml = '<ul class="activity-list">';
+        history.forEach(function (h) {
+          var icon = h.action === 'Record Created' ? 'bi-plus-circle' : 'bi-pencil';
+          var dateStr = formatDate(h.changed_at);
+          historyHtml +=
+            '<li class="activity">' +
+              '<span class="activity__icon"><i class="bi ' + icon + '"></i></span>' +
+              '<div class="activity__body">' +
+                '<strong>' + esc(h.action) + '</strong>' +
+                '<span>By ' + esc(h.user_name || 'System') + ' on ' + dateStr + '</span>' +
+              '</div>' +
+            '</li>';
+        });
+        historyHtml += '</ul>';
+      }
+
       var notes = i.notes
         ? '<div class="detail-notes">' +
             '<span class="detail-row__label">Notes</span>' +
@@ -683,9 +695,10 @@
       detailBody.innerHTML =
         hero +
         '<div class="detail-pane is-active" data-pane="overview">' + detailPanel(overviewRows) + '</div>' +
-        '<div class="detail-pane" data-pane="personal">' + detailPanel(personalRows) + notes + '</div>' +
+        '<div class="detail-pane" data-pane="profile">' + detailPanel(profileRows) + notes + '</div>' +
         '<div class="detail-pane" data-pane="case">' + detailPanel(caseRows) + '</div>' +
-        '<div class="detail-pane" data-pane="custody">' + detailPanel(custodyRows) + '</div>';
+        '<div class="detail-pane" data-pane="custody">' + detailPanel(custodyRows) + '</div>' +
+        '<div class="detail-pane" data-pane="history">' + historyHtml + '</div>';
 
       detailPanes = {};
       detailBody.querySelectorAll('.detail-pane').forEach(function (pane) {
@@ -780,6 +793,14 @@
       editSentenceMin.value = i.sentence_years_min !== null ? i.sentence_years_min : '';
       editSentenceMax.value = i.sentence_years_max !== null ? i.sentence_years_max : '';
 
+      if (i.avatar_path) {
+        editAvatarPreview.src = i.avatar_path;
+        editAvatarPreview.style.display = 'block';
+      } else {
+        editAvatarPreview.src = '';
+        editAvatarPreview.style.display = 'none';
+      }
+
       if (i.sentence_is_manual) {
         editSentenceManual.value = '1';
         editLastAutoSentence = null;
@@ -793,7 +814,6 @@
       }
       updateEditSentenceBadge();
 
-      // Jail units
       refApi('jail-units').then(function (jData) {
         editJailUnitSelect.setItems((jData.jail_units || []).map(function (u) {
           return { value: u.id, label: u.name + ' (' + u.dormitory + ')' };
@@ -942,7 +962,6 @@
         return;
       }
 
-      // NEW: validate min ≤ max when both are provided
       var minVal = parseFloat(payload.sentence_years_min);
       var maxVal = parseFloat(payload.sentence_years_max);
       if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) {
@@ -982,6 +1001,62 @@
       }).finally(function () {
         editSaveBtn.disabled = false;
         editSaveBtn.textContent = 'Save Changes';
+      });
+    });
+  }
+
+  /* ============================================================
+     AVATAR UPLOAD
+     ============================================================ */
+
+  if (editAvatarInput) {
+    editAvatarInput.addEventListener('change', function () {
+      var file = this.files[0];
+      if (!file) return;
+
+      var id = editId.value;
+      if (!id) {
+        alert('Please save the inmate record first before uploading a photo.');
+        return;
+      }
+
+      var formData = new FormData();
+      formData.append('id', id);
+      formData.append('avatar', file);
+
+      // Visual feedback (FIX: uses the new explicit variable)
+      var originalText = '';
+      if (editAvatarBtn) {
+        originalText = editAvatarBtn.innerHTML;
+        editAvatarBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Uploading...';
+        editAvatarBtn.disabled = true;
+      }
+
+      fetch('index.php?route=inmates&action=upload_avatar', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: formData
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.success) throw new Error(data.message || 'Upload failed');
+        
+        if (editAvatarPreview) {
+            editAvatarPreview.src = data.avatar_path + '?t=' + Date.now(); // cache bust
+            editAvatarPreview.style.display = 'block';
+        }
+        
+        load(true);
+      })
+      .catch(function(err) {
+        alert(err.message);
+      })
+      .finally(function() {
+        if (editAvatarBtn) {
+            editAvatarBtn.innerHTML = originalText;
+            editAvatarBtn.disabled = false;
+        }
+        editAvatarInput.value = ''; // clear input
       });
     });
   }
@@ -1098,5 +1173,10 @@
 
   document.addEventListener('inmates:changed', function () {
     load(true);
+  });
+
+    document.addEventListener("inmates:open-modal", function () {
+    var btn = document.getElementById("inmateCreateBtn");
+    if (btn) btn.click();
   });
 })();

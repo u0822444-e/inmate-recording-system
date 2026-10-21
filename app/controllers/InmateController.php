@@ -3,13 +3,20 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Models\ActivityLog;
 use App\Helpers\Response;
 use App\Services\Auth;
 use mysqli;
 
 class InmateController
 {
-    public function __construct(private mysqli $db) {}
+    private mysqli $db;
+    private ActivityLog $logger;
+
+    public function __construct(mysqli $db) {
+        $this->db = $db;
+        $this->logger = new ActivityLog($db);
+    }
 
     public function handle(string $action): void
     {
@@ -18,12 +25,13 @@ class InmateController
         }
 
         switch ($action) {
-            case 'create':  $this->create();  break;
-            case 'list':    $this->list();    break;
-            case 'get':     $this->get();     break;
-            case 'update':  $this->update();  break;
-            case 'export':  $this->exportCsv(); break;
-            default:        Response::json(false, 'Unsupported request.');
+            case 'create':        $this->create();       break;
+            case 'list':          $this->list();         break;
+            case 'get':           $this->get();          break;
+            case 'update':        $this->update();       break;
+            case 'export':        $this->exportCsv();    break;
+            case 'upload_avatar': $this->uploadAvatar(); break;
+            default:              Response::json(false, 'Unsupported request.');
         }
     }
 
@@ -42,6 +50,8 @@ class InmateController
         $middleName     = trim((string) ($p['middle_name'] ?? ''));
         $lastName       = trim((string) ($p['last_name'] ?? ''));
         $suffix         = trim((string) ($p['suffix'] ?? ''));
+        $avatarPath     = trim((string) ($p['avatar_path'] ?? '')) ?: null;
+        
         $dob            = trim((string) ($p['date_of_birth'] ?? '')) ?: null;
         $sex            = trim((string) ($p['sex'] ?? 'Unspecified')) ?: 'Unspecified';
         $civilStatus    = trim((string) ($p['civil_status'] ?? '')) ?: null;
@@ -69,8 +79,6 @@ class InmateController
         if ($inmateNumber === '') {
             Response::json(false, 'Inmate number is missing.');
         }
-        // Keep 'Released' allowed so historic records created before this
-        // change still validate cleanly if they are ever re-saved.
         if (!in_array($custodyStatus, ['In Custody', 'Released', 'Transferred'], true)) {
             $custodyStatus = 'In Custody';
         }
@@ -85,47 +93,41 @@ class InmateController
 
         $stmt = $this->db->prepare(
             'INSERT INTO inmates
-             (inmate_number, jail_unit_id, first_name, middle_name, last_name, suffix,
+             (inmate_number, jail_unit_id, first_name, middle_name, last_name, suffix, avatar_path,
               date_of_birth, sex, civil_status,
               municipality_id, barangay_id, offense_id, is_drug_case,
               sentence, sentence_years_min, sentence_years_max, sentence_is_manual,
               admission_date, committed_at, custody_status, classification,
               case_reference, notes, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         $stmt->bind_param(
-            'sssssssssiiiisssissssssi',
-            $inmateNumber,
-            $jailUnitId,
-            $firstName,
-            $middleName,
-            $lastName,
-            $suffix,
-            $dob,
-            $sex,
-            $civilStatus,
-            $municipalityId,
-            $barangayId,
-            $offenseId,
-            $isDrugCase,
-            $sentence,
-            $sentenceMin,
-            $sentenceMax,
-            $sentenceManual,
-            $admissionDate,
-            $committedAt,
-            $custodyStatus,
-            $classification,
-            $caseReference,
-            $notes,
-            $userId
+            'sssssssssssiiiisssissssssi',
+            $inmateNumber, $jailUnitId, $firstName, $middleName, $lastName, $suffix, $avatarPath,
+            $dob, $sex, $civilStatus, $municipalityId, $barangayId, $offenseId, $isDrugCase,
+            $sentence, $sentenceMin, $sentenceMax, $sentenceManual,
+            $admissionDate, $committedAt, $custodyStatus, $classification,
+            $caseReference, $notes, $userId
         );
 
         try {
             $stmt->execute();
             $id = (int) $stmt->insert_id;
             $stmt->close();
+            
+            $this->logHistory($id, 'Record Created', ['inmate_number' => $inmateNumber], $userId);
+            
+            $this->logger->log(
+                $userId,
+                'CREATE',
+                'Inmate',
+                $id,
+                'Created inmate record: ' . $firstName . ' ' . $lastName . ' (' . $inmateNumber . ')',
+                null,
+                ['inmate_number' => $inmateNumber, 'first_name' => $firstName, 'last_name' => $lastName]
+            );
+
             Response::json(true, 'Inmate created.', ['id' => $id]);
         } catch (\Throwable $e) {
             error_log('Inmate create: ' . $e->getMessage());
@@ -150,7 +152,7 @@ class InmateController
         $offset         = max(0, (int) ($_GET['offset'] ?? 0));
 
         $sql = 'SELECT i.id, i.inmate_number, i.jail_unit_id,
-                       i.first_name, i.middle_name, i.last_name,
+                       i.first_name, i.middle_name, i.last_name, i.avatar_path,
                        i.suffix, i.date_of_birth, i.sex, i.custody_status, i.classification,
                        i.is_drug_case,
                        i.admission_date, i.committed_at, i.case_reference,
@@ -272,7 +274,7 @@ class InmateController
     }
 
     /* ============================================================
-       GET — single inmate
+       GET
        ============================================================ */
 
     private function get(): void
@@ -283,37 +285,14 @@ class InmateController
         try {
             $stmt = $this->db->prepare(
                 'SELECT
-                    i.id,
-                    i.inmate_number,
-                    i.jail_unit_id,
-                    i.case_reference,
-                    i.first_name,
-                    i.middle_name,
-                    i.last_name,
-                    i.suffix,
-                    i.date_of_birth,
-                    i.sex,
-                    i.civil_status,
-                    i.municipality_id,
-                    i.barangay_id,
-                    i.offense_id,
-                    i.is_drug_case,
-                    i.sentence,
-                    i.sentence_years_min,
-                    i.sentence_years_max,
-                    i.sentence_is_manual,
-                    i.admission_date,
-                    i.committed_at,
-                    i.custody_status,
-                    i.classification,
-                    i.notes,
-                    i.created_at,
-                    i.updated_at,
-                    j.name AS jail_unit_name,
-                    m.name AS municipality_name,
-                    b.name AS barangay_name,
-                    o.name AS offense_name,
-                    o.code AS offense_code
+                    i.id, i.inmate_number, i.jail_unit_id, i.case_reference,
+                    i.first_name, i.middle_name, i.last_name, i.suffix, i.avatar_path,
+                    i.date_of_birth, i.sex, i.civil_status, i.municipality_id, i.barangay_id,
+                    i.offense_id, i.is_drug_case, i.sentence, i.sentence_years_min, i.sentence_years_max,
+                    i.sentence_is_manual, i.admission_date, i.committed_at, i.custody_status, i.classification,
+                    i.notes, i.created_at, i.updated_at,
+                    j.name AS jail_unit_name, m.name AS municipality_name, b.name AS barangay_name,
+                    o.name AS offense_name, o.code AS offense_code
                  FROM inmates i
                  LEFT JOIN jail_units j     ON j.id = i.jail_unit_id
                  LEFT JOIN municipalities m ON m.id = i.municipality_id
@@ -337,7 +316,22 @@ class InmateController
             $row['sentence_years_min'] = $row['sentence_years_min'] !== null ? (float) $row['sentence_years_min'] : null;
             $row['sentence_years_max'] = $row['sentence_years_max'] !== null ? (float) $row['sentence_years_max'] : null;
 
-            Response::json(true, 'OK', ['inmate' => $row]);
+            $history = [];
+            try {
+                $hStmt = $this->db->prepare(
+                    "SELECT h.action, h.changed_at, u.full_name AS user_name
+                     FROM inmate_history h
+                     LEFT JOIN users u ON u.id = h.changed_by
+                     WHERE h.inmate_id = ?
+                     ORDER BY h.changed_at DESC"
+                );
+                $hStmt->bind_param('i', $id);
+                $hStmt->execute();
+                $history = $hStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $hStmt->close();
+            } catch (\Throwable $e) { /* table may not exist */ }
+
+            Response::json(true, 'OK', ['inmate' => $row, 'history' => $history]);
         } catch (\Throwable $e) {
             error_log('Inmate get: ' . $e->getMessage());
             Response::json(false, 'Unable to load inmate: ' . $e->getMessage());
@@ -355,7 +349,7 @@ class InmateController
 
         if ($id <= 0) Response::json(false, 'Invalid inmate.');
 
-        $check = $this->db->prepare('SELECT id, custody_status FROM inmates WHERE id = ? LIMIT 1');
+        $check = $this->db->prepare('SELECT id, custody_status, avatar_path FROM inmates WHERE id = ? LIMIT 1');
         $check->bind_param('i', $id);
         $check->execute();
         $existing = $check->get_result()->fetch_assoc();
@@ -373,6 +367,9 @@ class InmateController
         $middleName     = trim((string) ($p['middle_name'] ?? ''));
         $lastName       = trim((string) ($p['last_name'] ?? ''));
         $suffix         = trim((string) ($p['suffix'] ?? ''));
+        
+        $avatarPath     = trim((string) ($p['avatar_path'] ?? $existing['avatar_path'])) ?: null;
+        
         $dob            = trim((string) ($p['date_of_birth'] ?? '')) ?: null;
         $sex            = trim((string) ($p['sex'] ?? 'Unspecified')) ?: 'Unspecified';
         $civilStatus    = trim((string) ($p['civil_status'] ?? '')) ?: null;
@@ -413,7 +410,7 @@ class InmateController
             'UPDATE inmates SET
                 inmate_number = ?,
                 jail_unit_id = ?,
-                first_name = ?, middle_name = ?, last_name = ?, suffix = ?,
+                first_name = ?, middle_name = ?, last_name = ?, suffix = ?, avatar_path = ?,
                 date_of_birth = ?, sex = ?, civil_status = ?,
                 municipality_id = ?, barangay_id = ?, offense_id = ?, is_drug_case = ?,
                 sentence = ?, sentence_years_min = ?, sentence_years_max = ?, sentence_is_manual = ?,
@@ -424,41 +421,97 @@ class InmateController
         );
 
         $stmt->bind_param(
-            'sssssssssiiiisssissssssii',
-            $inmateNumber,
-            $jailUnitId,
-            $firstName,
-            $middleName,
-            $lastName,
-            $suffix,
-            $dob,
-            $sex,
-            $civilStatus,
-            $municipalityId,
-            $barangayId,
-            $offenseId,
-            $isDrugCase,
-            $sentence,
-            $sentenceMin,
-            $sentenceMax,
-            $sentenceManual,
-            $admissionDate,
-            $committedAt,
-            $custodyStatus,
-            $classification,
-            $caseReference,
-            $notes,
-            $userId,
-            $id
+            'ssssssssssiiiisssissssssii',
+            $inmateNumber, $jailUnitId, $firstName, $middleName, $lastName, $suffix, $avatarPath,
+            $dob, $sex, $civilStatus, $municipalityId, $barangayId, $offenseId, $isDrugCase,
+            $sentence, $sentenceMin, $sentenceMax, $sentenceManual,
+            $admissionDate, $committedAt, $custodyStatus, $classification,
+            $caseReference, $notes, $userId, $id
         );
 
         try {
             $stmt->execute();
             $stmt->close();
+            $this->logHistory($id, 'Record Updated', ['updated_by' => $userId], $userId);
+            
+            $this->logger->log(
+                $userId,
+                'UPDATE',
+                'Inmate',
+                $id,
+                'Updated inmate record: ' . $firstName . ' ' . $lastName,
+                null,
+                ['inmate_number' => $inmateNumber, 'custody_status' => $custodyStatus]
+            );
+
             Response::json(true, 'Inmate updated.');
         } catch (\Throwable $e) {
             error_log('Inmate update: ' . $e->getMessage());
             Response::json(false, 'Unable to update: ' . $e->getMessage());
+        }
+    }
+
+    /* ============================================================
+       UPLOAD AVATAR
+       ============================================================ */
+
+    private function uploadAvatar(): void
+    {
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id <= 0) Response::json(false, 'Invalid inmate ID.');
+
+        if (!isset($_FILES['avatar']) || $_FILES['avatar']['error'] !== UPLOAD_ERR_OK) {
+            Response::json(false, 'No file uploaded or upload error.');
+        }
+
+        $file = $_FILES['avatar'];
+        $allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        
+        if (!in_array($file['type'], $allowedTypes, true)) {
+            Response::json(false, 'Invalid file type. Only JPG, PNG, and WEBP are allowed.');
+        }
+
+        if ($file['size'] > 5 * 1024 * 1024) {
+            Response::json(false, 'File is too large. Maximum size is 5MB.');
+        }
+
+        // Path to public_html/uploads/avatars/
+        $uploadDir = realpath(__DIR__ . '/../../public_html') . '/uploads/avatars/';
+        
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filename = 'inmate_' . $id . '_' . time() . '.' . $ext;
+        $filepath = $uploadDir . $filename;
+
+        if (move_uploaded_file($file['tmp_name'], $filepath)) {
+            $dbPath = 'uploads/avatars/' . $filename;
+            
+            $stmt = $this->db->prepare('UPDATE inmates SET avatar_path = ? WHERE id = ?');
+            $stmt->bind_param('si', $dbPath, $id);
+            $stmt->execute();
+            $stmt->close();
+
+            Response::json(true, 'Avatar uploaded.', ['avatar_path' => $dbPath]);
+        } else {
+            Response::json(false, 'Failed to save uploaded file. Check directory permissions.');
+        }
+    }
+
+    private function logHistory(int $inmateId, string $action, array $changes, int $userId): void
+    {
+        try {
+            $changesJson = json_encode($changes);
+            $stmt = $this->db->prepare(
+                'INSERT INTO inmate_history (inmate_id, action, changes, changed_by) VALUES (?, ?, ?, ?)'
+            );
+            $stmt->bind_param('issi', $inmateId, $action, $changesJson, $userId);
+            $stmt->execute();
+            $stmt->close();
+        } catch (\Throwable $e) {
+            error_log('Failed to log history: ' . $e->getMessage());
         }
     }
 
@@ -577,7 +630,7 @@ class InmateController
                 $r['date_of_birth']      ?? '',
                 $r['sex']                ?? '',
                 $r['civil_status']       ?? '',
-                $r['classification']     ?? '',
+                $r['classification']      ?? '',
                 ((int) ($r['is_drug_case'] ?? 0) === 1) ? 'Yes' : 'No',
                 $r['committed_at']       ?? '',
                 $r['municipality_name']  ?? '',

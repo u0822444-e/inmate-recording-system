@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Models\ActivityLog;
 use App\Helpers\Response;
 use App\Models\Visitor;
 use App\Services\Auth;
@@ -11,10 +12,12 @@ use mysqli;
 class VisitorController
 {
     private Visitor $model;
+    private ActivityLog $logger;
 
     public function __construct(mysqli $db)
     {
         $this->model = new Visitor($db);
+        $this->logger = new ActivityLog($db);
     }
 
     public function handle(string $action): void
@@ -128,6 +131,16 @@ class VisitorController
             'recorded_by'  => $userId,
         ]);
 
+        $this->logger->log(
+            $userId,
+            'CREATE',
+            'Visitor',
+            $id,
+            'Logged visitor: ' . $fullName . ' (Visiting PDL ID: ' . $inmateId . ')',
+            null,
+            ['full_name' => $fullName, 'inmate_id' => $inmateId, 'time_in' => $timeIn]
+        );
+
         Response::json(true, 'Visitor logged.', ['id' => $id]);
     }
 
@@ -187,6 +200,16 @@ class VisitorController
             'purpose'      => $purpose,
             'notes'        => $notes,
         ]);
+
+        $this->logger->log(
+            (int) Auth::user()['id'],
+            'UPDATE',
+            'Visitor',
+            $id,
+            'Updated visitor record: ' . $fullName,
+            null,
+            ['full_name' => $fullName, 'inmate_id' => $inmateId]
+        );
 
         Response::json(true, 'Visitor updated.');
     }

@@ -12,6 +12,9 @@ use App\Controllers\ProfileController;
 use App\Controllers\VisitorController;
 use App\Controllers\IncidentController;
 use App\Controllers\HeadcountController;
+use App\Controllers\ActivityLogController;
+
+
 use App\Services\Auth;
 
 /* ----------------------------------------------------------
@@ -45,6 +48,9 @@ require_once __DIR__ . '/../app/models/Incident.php';
 require_once __DIR__ . '/../app/controllers/IncidentController.php';
 require_once __DIR__ . '/../app/models/Headcount.php';
 require_once __DIR__ . '/../app/controllers/HeadcountController.php';
+require_once __DIR__ . '/../app/helpers/Upload.php'; 
+require_once __DIR__ . '/../app/models/ActivityLog.php';
+require_once __DIR__ . '/../app/controllers/ActivityLogController.php';
 
 Auth::start();
 
@@ -127,6 +133,11 @@ if ($route === 'incidents') {
 
 if ($route === 'headcount') {
     (new HeadcountController($db))->handle($action);
+    exit;
+}
+
+if ($route === 'activity-logs') {
+    (new ActivityLogController($db))->handle($action);
     exit;
 }
 

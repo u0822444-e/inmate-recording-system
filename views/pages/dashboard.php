@@ -32,13 +32,28 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
 
             <header class="section-header">
                 <div>
-                    <h1><?= $isAdmin ? 'Overview' : 'My Dashboard' ?></h1>
-                    <p>Welcome back,
-                        <strong><?= htmlspecialchars($user['full_name'] ?: $user['username'], ENT_QUOTES) ?></strong>
+                    <h1><?= $isAdmin ? 'Administrative Command Center' : 'Officer Dashboard' ?></h1>
+                    <p style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+                        <span>Welcome back, <strong><?= htmlspecialchars($user['full_name'] ?: $user['username'], ENT_QUOTES) ?></strong>.</span>
+                        
+                        <span class="role-badge role-badge--<?= $isAdmin ? 'admin' : 'staff' ?>">
+                            <?= htmlspecialchars($user['role'], ENT_QUOTES) ?>
+                        </span>
+
+                        <span style="color: #94a3b8; font-size: 0.85rem;">
+                            <?= $isAdmin 
+                                ? '· Manage facility operations, users, and analytics.' 
+                                : '· Record entries, submit headcounts, and log incidents.' ?>
+                        </span>
                     </p>
                 </div>
-                <div class="section-header__tools">
-                    <span class="meta-text"><?= htmlspecialchars($today, ENT_QUOTES) ?></span>
+                <div class="section-header__tools" style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                    <span class="meta-text" style="font-weight: 500;">
+                        <i class="bi bi-calendar3"></i> <?= htmlspecialchars($today, ENT_QUOTES) ?>
+                    </span>
+                    <span class="status-pill status-pill--on" style="font-size: 0.75rem; padding: 4px 10px;">
+                        <i class="bi bi-shield-check"></i> System Operational
+                    </span>
                 </div>
             </header>
 
@@ -129,6 +144,42 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
                     </article>
                 <?php endif; ?>
             </div>
+
+            <?php if (!$isAdmin): ?>
+                <!-- STAFF CHARTS -->
+                <div class="chart-grid chart-grid--2" style="margin-bottom: 1rem;">
+                    
+                    <!-- Line Chart: Visitor Trend -->
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">My Visitor Log Trend</h2>
+                            <div class="tab-group" role="tablist" id="staffLineChartTabs">
+                                <button type="button" class="tab-btn is-active" data-days="7">Week</button>
+                                <button type="button" class="tab-btn" data-days="30">Month</button>
+                                <button type="button" class="tab-btn" data-days="365">Year</button>
+                            </div>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartStaffLine" height="220"></canvas>
+                        </div>
+                    </article>
+
+                                                            <!-- Bar Chart: Visitors Grouped -->
+                    <article class="card">
+                        <header class="card__header">
+                            <h2 class="card__title">Visitor Volume</h2>
+                            <div class="tab-group" role="tablist" id="staffBarChartTabs">
+                                <button type="button" class="tab-btn" data-mode="hourly">Hourly</button>
+                                <button type="button" class="tab-btn is-active" data-mode="daily">Per Day</button>
+                                <button type="button" class="tab-btn" data-mode="monthly">Monthly</button>
+                            </div>
+                        </header>
+                        <div class="chart-container">
+                            <canvas id="chartStaffBar" height="220"></canvas>
+                        </div>
+                    </article>
+                </div>
+            <?php endif; ?>
 
             <?php if ($isAdmin): ?>
 
@@ -260,26 +311,26 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
                 </header>
                 <div class="quick-actions">
                     <?php if ($isAdmin): ?>
-                        <button type="button" class="action-tile" data-section="headcount">
+                        <button type="button" class="action-tile" id="quickReviewHeadcountBtn">
                             <i class="bi bi-clipboard2-check"></i><span>Review headcount</span>
                         </button>
-                        <button type="button" class="action-tile" data-section="incidents">
+                        <button type="button" class="action-tile" id="quickLogIncidentBtn">
                             <i class="bi bi-exclamation-diamond"></i><span>Log an incident</span>
                         </button>
-                        <button type="button" class="action-tile" data-section="users">
+                        <button type="button" class="action-tile" id="quickManageUsersBtn">
                             <i class="bi bi-person-gear"></i><span>Manage users</span>
                         </button>
                     <?php else: ?>
                         <button type="button" class="action-tile" id="quickRecordInmateBtn">
                             <i class="bi bi-pencil-square"></i><span>Record new inmate</span>
                         </button>
-                        <button type="button" class="action-tile" data-section="headcount">
+                        <button type="button" class="action-tile" id="quickSubmitHeadcountBtn">
                             <i class="bi bi-clipboard2-check"></i><span>Submit headcount</span>
                         </button>
-                        <button type="button" class="action-tile" data-section="visitors">
+                        <button type="button" class="action-tile" id="quickLogVisitorBtn">
                             <i class="bi bi-person-plus"></i><span>Log visitor</span>
                         </button>
-                        <button type="button" class="action-tile" data-section="incidents">
+                        <button type="button" class="action-tile" id="quickReportIncidentBtn">
                             <i class="bi bi-exclamation-diamond"></i><span>Report incident</span>
                         </button>
                     <?php endif; ?>
@@ -308,13 +359,10 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
             </footer>
         </section>
 
-
-
         <!-- ============================================================
              INMATES
              ============================================================ -->
         <?php require __DIR__ . '/inmates-section.php'; ?>
-
 
         <!-- VISITORS -->
         <?php require __DIR__ . '/visitors-section.php'; ?>
@@ -337,6 +385,7 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
             <?php require __DIR__ . '/users-section.php'; ?>
             <?php require __DIR__ . '/jail-units-section.php'; ?>
             <?php require __DIR__ . '/reports-section.php'; ?>
+            <?php require __DIR__ . '/activity-logs-section.php'; ?>
         <?php endif; ?>
 
     </main>
@@ -350,3 +399,4 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
 <?php require __DIR__ . '/../components/modal-confirm.php'; ?>
 <?php require __DIR__ . '/../components/modal-success.php'; ?>
 <?php require __DIR__ . '/../components/modal-logout.php'; ?>
+<script src="assets/js/activity-logs.js" defer></script>

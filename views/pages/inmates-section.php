@@ -119,9 +119,10 @@ $isAdmin = Auth::isAdmin();
         <!-- Tab nav -->
         <nav class="detail-tabs" role="tablist">
             <button type="button" class="detail-tab is-active" data-tab="overview" role="tab">Overview</button>
-            <button type="button" class="detail-tab" data-tab="personal" role="tab">Personal</button>
+            <button type="button" class="detail-tab" data-tab="profile" role="tab">Profile</button>
             <button type="button" class="detail-tab" data-tab="case" role="tab">Case</button>
             <button type="button" class="detail-tab" data-tab="custody" role="tab">Custody</button>
+            <button type="button" class="detail-tab" data-tab="history" role="tab">History</button>
         </nav>
 
         <div class="dj-modal__body" id="inmateDetailBody">
@@ -184,6 +185,26 @@ $isAdmin = Auth::isAdmin();
                 <!-- Personal -->
                 <fieldset class="user-form-section">
                     <legend>Personal Information</legend>
+                    
+                    <!-- Avatar Upload -->
+                    <div class="form-grid-row" style="align-items: center; margin-bottom: 1rem;">
+                        <div class="field">
+                            <span>Profile Picture</span>
+                            <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.5rem;">
+                                <img id="editAvatarPreview" src="" alt="Avatar" 
+                                     style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #e2e8f0; border: 1px solid #cbd5e1; display: none;">
+                                <div>
+                                    <input type="file" id="editAvatarInput" accept="image/jpeg, image/png, image/webp" style="display: none;">
+                                    <!-- FIX: Added ID to the button -->
+                                    <button type="button" class="btn-secondary btn-sm" id="editAvatarBtn" onclick="document.getElementById('editAvatarInput').click();">
+                                        <i class="bi bi-camera"></i> Change Photo
+                                    </button>
+                                    <span class="field__hint" style="display: block; margin-top: 0.25rem;">Max 5MB. JPG, PNG, WEBP.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-grid-row">
                         <label class="field">
                             <span>First name</span>
@@ -302,7 +323,6 @@ $isAdmin = Auth::isAdmin();
                             <span>Years (max)</span>
                             <input type="number" step="0.1" min="0" id="editSentenceMax">
                         </label>
-                        ...
                         <label class="field">
                             <span>Admission date</span>
                             <input type="date" id="editAdmissionDate" required>

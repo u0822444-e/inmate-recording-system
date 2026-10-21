@@ -663,4 +663,9 @@
   initJailUnitSelect();
   loadProvinces();
   if (section.classList.contains('is-visible')) load();
+
+    document.addEventListener("incidents:open-modal", function () {
+    var btn = document.getElementById("incidentCreateBtn");
+    if (btn) btn.click();
+  });
 })();

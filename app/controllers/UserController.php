@@ -39,22 +39,63 @@ class UserController
             $this->restore();
         elseif ($method === 'POST' && $action === 'delete')
             $this->delete();
+        elseif ($method === 'POST' && $action === 'avatar')
+            $this->avatar();
         else
             Response::json(false, 'Unsupported request.');
     }
 
+    private function avatar(): void
+{
+    try {
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            Response::json(false, 'Invalid user.');
+        }
+        if (!$this->model->find($id)) {
+            Response::json(false, 'User not found.');
+        }
+
+        if (empty($_FILES['avatar'])) {
+            Response::json(false, 'No file uploaded.');
+        }
+
+        // Delete old file first
+        \App\Helpers\Upload::deleteAvatar($this->model->currentAvatar($id));
+
+        $path = \App\Helpers\Upload::saveAvatar($_FILES['avatar'], $id);
+        if ($path === null) {
+            Response::json(false, 'No file uploaded.');
+        }
+
+        $this->model->updateAvatar($id, $path);
+        Response::json(true, 'Avatar updated.', ['avatar_path' => $path]);
+    } catch (\Throwable $e) {
+        error_log('User avatar error: ' . $e->getMessage());
+        Response::json(false, 'Avatar upload failed: ' . $e->getMessage());
+    }
+}
+
     private function list(): void
     {
-        $q = trim((string) ($_GET['q'] ?? ''));
-        $role = trim((string) ($_GET['role'] ?? ''));
-        $status = trim((string) ($_GET['status'] ?? ''));
-        $scope = ($_GET['scope'] ?? 'active') === 'archived' ? 'archived' : 'active';
-        $jailUnitId = (int) ($_GET['jail_unit_id'] ?? 0);
+        try {
+            $q = trim((string) ($_GET['q'] ?? ''));
+            $role = trim((string) ($_GET['role'] ?? ''));
+            $status = trim((string) ($_GET['status'] ?? ''));
+            $scope = ($_GET['scope'] ?? 'active') === 'archived' ? 'archived' : 'active';
+            $jailUnitId = (int) ($_GET['jail_unit_id'] ?? 0);
 
-        Response::json(true, 'OK', [
-            'users' => $this->model->all($q, $role, $status, $scope, $jailUnitId),
-            'scope' => $scope,
-        ]);
+            $users = $this->model->all($q, $role, $status, $scope, $jailUnitId);
+
+            Response::json(true, 'OK', [
+                'users' => $users,
+                'scope' => $scope,
+            ]);
+        } catch (\Throwable $e) {
+            // FIX: Catch database errors and return them as JSON, not HTML
+            error_log('User list error: ' . $e->getMessage());
+            Response::json(false, 'Database error: ' . $e->getMessage());
+        }
     }
 
     private function suggestUsername(): void
@@ -74,61 +115,71 @@ class UserController
 
     private function create(): void
     {
-        $p = Response::readJsonInput();
+        try {
+            $p = Response::readJsonInput();
 
-        $fields = $this->extract($p);
-        $this->validate($fields, null);
+            $fields = $this->extract($p);
+            $this->validate($fields, null);
 
-        if ($fields['username'] === '') {
-            $fields['username'] = $this->model->generateUsername(
-                $fields['first_name'],
-                $fields['last_name']
-            );
+            if ($fields['username'] === '') {
+                $fields['username'] = $this->model->generateUsername(
+                    $fields['first_name'],
+                    $fields['last_name']
+                );
+            }
+
+            if ($this->model->usernameExists($fields['username'])) {
+                Response::json(false, 'Username already exists.');
+            }
+
+            $fields['password'] = (string) ($p['password'] ?? '');
+            if (strlen($fields['password']) < 8) {
+                Response::json(false, 'Password must be at least 8 characters.');
+            }
+
+            $id = $this->model->create($fields);
+            Response::json(true, 'User created.', ['id' => $id]);
+        } catch (\Throwable $e) {
+            error_log('User create error: ' . $e->getMessage());
+            Response::json(false, 'Unable to create user: ' . $e->getMessage());
         }
-
-        if ($this->model->usernameExists($fields['username'])) {
-            Response::json(false, 'Username already exists.');
-        }
-
-        $fields['password'] = (string) ($p['password'] ?? '');
-        if (strlen($fields['password']) < 8) {
-            Response::json(false, 'Password must be at least 8 characters.');
-        }
-
-        $id = $this->model->create($fields);
-        Response::json(true, 'User created.', ['id' => $id]);
     }
 
     private function update(): void
     {
-        $p = Response::readJsonInput();
-        $id = (int) ($p['id'] ?? 0);
+        try {
+            $p = Response::readJsonInput();
+            $id = (int) ($p['id'] ?? 0);
 
-        if ($id <= 0)
-            Response::json(false, 'Invalid user.');
+            if ($id <= 0)
+                Response::json(false, 'Invalid user.');
 
-        if (!$this->model->find($id))
-            Response::json(false, 'User not found.');
+            if (!$this->model->find($id))
+                Response::json(false, 'User not found.');
 
-        $fields = $this->extract($p);
-        $this->validate($fields, $id);
+            $fields = $this->extract($p);
+            $this->validate($fields, $id);
 
-        $currentId = (int) Auth::user()['id'];
-        if ($id === $currentId && $fields['role'] !== 'Administrator') {
-            Response::json(false, 'You cannot change your own role.');
+            $currentId = (int) Auth::user()['id'];
+            if ($id === $currentId && $fields['role'] !== 'Administrator') {
+                Response::json(false, 'You cannot change your own role.');
+            }
+
+            if ($fields['username'] !== '' && $this->model->usernameExists($fields['username'], $id)) {
+                Response::json(false, 'Username already exists.');
+            }
+
+            $fields['password'] = (string) ($p['password'] ?? '');
+            if ($fields['password'] !== '' && strlen($fields['password']) < 8) {
+                Response::json(false, 'Password must be at least 8 characters.');
+            }
+
+            $this->model->update($id, $fields);
+            Response::json(true, 'User updated.');
+        } catch (\Throwable $e) {
+            error_log('User update error: ' . $e->getMessage());
+            Response::json(false, 'Unable to update user: ' . $e->getMessage());
         }
-
-        if ($fields['username'] !== '' && $this->model->usernameExists($fields['username'], $id)) {
-            Response::json(false, 'Username already exists.');
-        }
-
-        $fields['password'] = (string) ($p['password'] ?? '');
-        if ($fields['password'] !== '' && strlen($fields['password']) < 8) {
-            Response::json(false, 'Password must be at least 8 characters.');
-        }
-
-        $this->model->update($id, $fields);
-        Response::json(true, 'User updated.');
     }
 
     private function toggle(): void

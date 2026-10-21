@@ -62,6 +62,7 @@
   var loaded          = false;
   var jailUnitsLoaded = false;
   var scope           = 'active'; // 'active' | 'archived'
+  var pendingOpenModal = false;   // Tracks if a Quick Action tried to open the modal early
 
   /* ============================================================
      HELPERS
@@ -160,6 +161,12 @@
         jailUnitSelect.setValue(lockedJailUnitId);
         jailUnitSelect.setDisabled(true);
         document.getElementById('headcountJailUnitId').value = lockedJailUnitId;
+      }
+
+      // FIX: If the Quick Action asked to open the modal while we were loading, open it now
+      if (pendingOpenModal) {
+        pendingOpenModal = false;
+        openModal(null);
       }
     }).catch(function (err) { console.error('jail units:', err); });
   }
@@ -272,7 +279,6 @@
       /* ---------- ARCHIVED SCOPE ---------- */
       if (isArchivedScope) {
         if (isAdmin) {
-          // Restore + permanent delete
           actions +=
             '<button type="button" class="icon-btn" data-action="restore" title="Restore">' +
               '<i class="bi bi-arrow-counterclockwise"></i>' +
@@ -284,7 +290,6 @@
       }
       /* ---------- ACTIVE SCOPE ---------- */
       else {
-        // Admin: verify + flag on unverified
         if (isAdmin && isUnverified) {
           actions +=
             '<button type="button" class="icon-btn" data-action="verify" title="Verify">' +
@@ -295,7 +300,6 @@
             '</button>';
         }
 
-        // Edit: admin any unverified, staff own unverified
         var canEdit = isUnverified && (isAdmin || isOwn);
         if (canEdit) {
           actions +=
@@ -304,7 +308,6 @@
             '</button>';
         }
 
-        // Archive: admin any, staff own unverified
         var canArchive = isAdmin || (isOwn && isUnverified);
         if (canArchive) {
           actions +=
@@ -535,13 +538,11 @@
 
       var action = btn.dataset.action;
 
-      /* ---------- EDIT ---------- */
       if (action === 'edit') {
         openModal(row);
         return;
       }
 
-      /* ---------- VERIFY ---------- */
       if (action === 'verify') {
         var okV = await window.confirmDialog({
           title: 'Verify Headcount',
@@ -562,7 +563,6 @@
         return;
       }
 
-      /* ---------- FLAG ---------- */
       if (action === 'flag') {
         var okF = await window.confirmDialog({
           title: 'Flag Discrepancy',
@@ -584,7 +584,6 @@
         return;
       }
 
-      /* ---------- ARCHIVE ---------- */
       if (action === 'archive') {
         var okA = await window.confirmDialog({
           title: 'Archive Headcount',
@@ -606,7 +605,6 @@
         return;
       }
 
-      /* ---------- RESTORE ---------- */
       if (action === 'restore') {
         var okR = await window.confirmDialog({
           title: 'Restore Headcount',
@@ -627,7 +625,6 @@
         return;
       }
 
-      /* ---------- PERMANENT DELETE ---------- */
       if (action === 'delete') {
         var okD = await window.confirmDialog({
           title: 'Delete Permanently',
@@ -663,7 +660,6 @@
         archiveToggleLabel.textContent = scope === 'archived' ? 'View Active' : 'View Archived';
       }
 
-      // Hide the Submit button when viewing archived rows
       if (submitBtn) submitBtn.hidden = scope === 'archived';
 
       load(true);
@@ -694,7 +690,7 @@
   }
 
   /* ============================================================
-     SECTION EVENTS
+     SECTION EVENTS & QUICK ACTIONS
      ============================================================ */
 
   document.addEventListener('section:changed', function (e) {
@@ -706,8 +702,21 @@
     }
   });
 
+  // Initial load
   loadJailUnitFilter();
   initJailUnitSelect();
   loadShiftStrip();
   if (section.classList.contains('is-visible')) load();
+
+  // FIX: Listen for the Quick Action event from dashboard.js
+  document.addEventListener('headcount:open-modal', function () {
+    // If the jail units are loaded, open immediately
+    if (jailUnitsLoaded) {
+      openModal(null);
+    } else {
+      // Otherwise, set a flag so it opens as soon as loading finishes
+      pendingOpenModal = true;
+    }
+  });
+
 })();

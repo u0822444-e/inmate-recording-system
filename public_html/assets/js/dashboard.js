@@ -1,6 +1,5 @@
 /* ============================================================
    dashboard.js — ROUTER + DATA LOADER (combined)
-   Replaces both the old router file and the old dashboard.js
    ============================================================ */
 (function () {
   "use strict";
@@ -9,9 +8,7 @@
 
   var shell = document.getElementById("dashboardScreen");
   if (!shell) {
-    console.warn(
-      "[dashboard] #dashboardScreen not found — script will not run"
-    );
+    console.warn("[dashboard] #dashboardScreen not found — script will not run");
     return;
   }
 
@@ -63,9 +60,7 @@
       btn.classList.remove("is-open");
       btn.setAttribute("aria-expanded", "false");
       var children = shell.querySelector(
-        '.sidebar-nav__children[data-group-children="' +
-          btn.dataset.group +
-          '"]'
+        '.sidebar-nav__children[data-group-children="' + btn.dataset.group + '"]'
       );
       if (children) children.classList.remove("is-open");
     });
@@ -296,10 +291,165 @@
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
 
+    /* ============================================================
+     STAFF CHARTS
+     ============================================================ */
+     
+  var staffCharts = { line: null, bar: null };
+
+  function loadStaffAnalytics(days, mode) {
+    if (isAdmin) return;
+    
+    getJSON("index.php?route=dashboard&action=staff-analytics&days=" + days + "&mode=" + mode)
+      .then(function (data) {
+        var a = data.staff_analytics || {};
+        renderStaffCharts(a, days, mode);
+      })
+      .catch(function (err) {
+        console.error("[dashboard] staff analytics failed:", err);
+      });
+  }
+
+    function renderStaffCharts(a, days, mode) {
+    if (!window.Chart) return;
+
+    /* --- Staff Line Chart (Visitors Trend) --- */
+    var lineCanvas = el("chartStaffLine");
+    if (lineCanvas && a.visitors_line) {
+      if (staffCharts.line) staffCharts.line.destroy();
+      
+      var lineLabels = a.visitors_line.map(function (r) {
+          var d = new Date(r.date + "T00:00:00");
+          return days >= 30 ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : d.toLocaleDateString('en-US', { weekday: 'short' });
+      });
+
+      staffCharts.line = new Chart(lineCanvas, {
+        type: "line",
+        data: {
+          labels: lineLabels,
+          datasets: [{
+            label: "Visitors Logged",
+            data: a.visitors_line.map(function (r) { return r.count; }),
+            borderColor: THEME.primary,
+            backgroundColor: "rgba(37, 99, 235, 0.10)",
+            borderWidth: 2,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 3,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    /* --- Staff Bar Chart (Visitors Volume) --- */
+    var barCanvas = el("chartStaffBar");
+    if (barCanvas && a.visitors_bar) {
+      if (staffCharts.bar) staffCharts.bar.destroy();
+
+      staffCharts.bar = new Chart(barCanvas, {
+        type: "bar",
+        data: {
+          labels: a.visitors_bar.map(function (r) { return r.label; }),
+          datasets: [{
+            label: "Visitors",
+            data: a.visitors_bar.map(function (r) { return r.count; }),
+            backgroundColor: THEME.success,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+  }
+
+  // Wire up staff Line chart tabs (Week/Month/Year)
+  var currentStaffDays = 7;
+  var currentStaffMode = 'daily';
+
+  document.querySelectorAll("#staffLineChartTabs .tab-btn").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      document.querySelectorAll("#staffLineChartTabs .tab-btn").forEach(function(b) { b.classList.remove("is-active"); });
+      e.target.classList.add("is-active");
+      currentStaffDays = parseInt(e.target.dataset.days, 10) || 7;
+      loadStaffAnalytics(currentStaffDays, currentStaffMode);
+    });
+  });
+
+  // Wire up staff Bar chart tabs (Per Day / Hourly)
+  document.querySelectorAll("#staffBarChartTabs .tab-btn").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      document.querySelectorAll("#staffBarChartTabs .tab-btn").forEach(function(b) { b.classList.remove("is-active"); });
+      e.target.classList.add("is-active");
+      currentStaffMode = e.target.dataset.mode || 'daily';
+      loadStaffAnalytics(currentStaffDays, currentStaffMode);
+    });
+  });
+
+  /* ============================================================
+     COUNTER ANIMATION
+     ============================================================ */
+
+  /**
+   * Animates a number from its current value to a target value.
+   * Uses requestAnimationFrame for smooth 60fps rendering.
+   */
+  function animateValue(obj, start, end, duration) {
+    if (!obj) return;
+    var startTimestamp = null;
+
+    function step(timestamp) {
+      if (!startTimestamp) startTimestamp = timestamp;
+      var progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      
+      // Easing out function (starts fast, slows down at the end)
+      var easeOutQuart = 1 - Math.pow(1 - progress, 4);
+      var current = Math.floor(easeOutQuart * (end - start) + start);
+      
+      obj.textContent = current.toLocaleString();
+
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        // Ensure exact final value
+        obj.textContent = end.toLocaleString();
+      }
+    }
+    window.requestAnimationFrame(step);
+  }
+
   function setText(id, value) {
     var node = el(id);
     if (!node) return;
-    node.textContent = value == null || value === "" ? "—" : value;
+    
+    // Parse the target number
+    var target = parseInt(value, 10);
+    if (isNaN(target)) {
+      node.textContent = value == null || value === "" ? "—" : value;
+      return;
+    }
+
+    // If it already has this value, don't animate
+    var currentVal = parseInt(node.textContent.replace(/,/g, ''), 10);
+    if (currentVal === target) return;
+
+    // Animate from 0 (or current value) to target
+    var start = isNaN(currentVal) ? 0 : currentVal;
+    animateValue(node, start, target, 800); // 800ms duration
   }
 
   function loadStats() {
@@ -440,8 +590,7 @@
   };
 
   if (window.Chart) {
-    Chart.defaults.font.family =
-      "'Inter', system-ui, -apple-system, sans-serif";
+    Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
     Chart.defaults.color = "#475569";
     Chart.defaults.plugins.legend.labels.usePointStyle = true;
     Chart.defaults.plugins.legend.labels.boxWidth = 8;
@@ -472,12 +621,13 @@
   function renderCharts(a) {
     if (!window.Chart) return;
 
-    if (a.population_trend && a.population_trend.length) {
+        if (a.population_trend && a.population_trend.length) {
       safeCreate("population", el("chartPopulationTrend"), {
         type: "line",
         data: {
+          // ✅ Pass the raw YYYY-MM-DD string so Chart.js can parse it as a Date
           labels: a.population_trend.map(function (r) {
-            return shortDate(r.date);
+            return r.date; 
           }),
           datasets: [
             {
@@ -500,7 +650,22 @@
           plugins: { legend: { display: false } },
           scales: {
             y: { beginAtZero: true, ticks: { precision: 0 } },
-            x: { grid: { display: false } },
+            x: {
+              type: 'time', // ✅ Tell Chart.js to treat X as a timeline
+              time: {
+                unit: 'day',
+                tooltipFormat: 'MMM d, yyyy',
+                displayFormats: {
+                  day: 'MMM d'
+                }
+              },
+              grid: { display: false },
+              ticks: {
+                maxRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: 7 // Prevents label crowding
+              }
+            },
           },
         },
       });
@@ -837,21 +1002,29 @@
     });
 
   /* ============================================================
-     PART 3 — INIT
+     PART 3 — INIT & QUICK ACTIONS
      ============================================================ */
 
   var statsLoaded = false;
 
-  function ensureOverviewData() {
+    function ensureOverviewData() {
     if (!statsLoaded) {
       statsLoaded = true;
       loadStats();
       loadActivity();
-      // loadUpcoming();
     }
 
-    if (!isAdmin) return;
+    // ============================================================
+    // STAFF LOGIC: Load the new visitor charts
+    // ============================================================
+    if (!isAdmin) {
+      loadStaffAnalytics(7, 'daily');
+      return; // Exit early for staff
+    }
 
+    // ============================================================
+    // ADMIN LOGIC: Restore saved chart range and load analytics
+    // ============================================================
     // ---- Read the saved trend range ----
     var saved = "30D";
     try {
@@ -899,6 +1072,72 @@
       ensureOverviewData();
     }
   });
+
+  /* ============================================================
+     QUICK ACTIONS — Open Modals
+     ============================================================ */
+
+  function triggerAction(sectionName) {
+    // 1. Navigate to the section
+    showSection(sectionName);
+
+    // 2. Fire a custom event. The section's specific JS file (e.g., headcount.js, users.js)
+    // will listen for this event and open the modal once it's fully loaded.
+    setTimeout(function () {
+      document.dispatchEvent(new CustomEvent(sectionName + ":open-modal"));
+    }, 100);
+  }
+
+  // Admin Actions
+  var qaReviewHeadcount = document.getElementById("quickReviewHeadcountBtn");
+  if (qaReviewHeadcount) {
+    qaReviewHeadcount.addEventListener("click", function () {
+      triggerAction("headcount");
+    });
+  }
+
+  var qaLogIncident = document.getElementById("quickLogIncidentBtn");
+  if (qaLogIncident) {
+    qaLogIncident.addEventListener("click", function () {
+      triggerAction("incidents");
+    });
+  }
+
+  var qaManageUsers = document.getElementById("quickManageUsersBtn");
+  if (qaManageUsers) {
+    qaManageUsers.addEventListener("click", function () {
+      triggerAction("users");
+    });
+  }
+
+  // Staff Actions
+  var qaRecordInmate = document.getElementById("quickRecordInmateBtn");
+  if (qaRecordInmate) {
+    qaRecordInmate.addEventListener("click", function () {
+      triggerAction("inmates");
+    });
+  }
+
+  var qaSubmitHeadcount = document.getElementById("quickSubmitHeadcountBtn");
+  if (qaSubmitHeadcount) {
+    qaSubmitHeadcount.addEventListener("click", function () {
+      triggerAction("headcount");
+    });
+  }
+
+  var qaLogVisitor = document.getElementById("quickLogVisitorBtn");
+  if (qaLogVisitor) {
+    qaLogVisitor.addEventListener("click", function () {
+      triggerAction("visitors");
+    });
+  }
+
+  var qaReportIncident = document.getElementById("quickReportIncidentBtn");
+  if (qaReportIncident) {
+    qaReportIncident.addEventListener("click", function () {
+      triggerAction("incidents");
+    });
+  }
 
   // Initial render — show the section from URL
   showSection(getSectionFromUrl(), false);

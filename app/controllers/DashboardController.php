@@ -38,10 +38,27 @@ class DashboardController
                 break;
             case 'analytics':
                 $this->analytics();
-                break;  // NEW
+                break;
+            case 'staff-analytics':
+                $this->staffAnalytics();
+                break;
             default:
                 Response::json(false, 'Unsupported request.');
         }
+    }
+
+            private function staffAnalytics(): void
+    {
+        $userId = (int) Auth::user()['id'];
+        $days = max(7, min(365, (int) ($_GET['days'] ?? 7)));
+        $mode = $_GET['mode'] ?? 'daily';
+
+        $data = [
+            'visitors_line' => $this->safeList(fn() => $this->model->myVisitorsLineTrend($userId, $days)),
+            'visitors_bar'  => $this->safeList(fn() => $this->model->myVisitorsBarChart($userId, $days, $mode)),
+        ];
+
+        Response::json(true, 'OK', ['staff_analytics' => $data]);
     }
 
     private function stats(): void

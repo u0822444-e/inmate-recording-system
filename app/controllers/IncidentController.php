@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Models\ActivityLog;
 use App\Helpers\Response;
 use App\Models\Incident;
 use App\Services\Auth;
@@ -11,10 +12,12 @@ use mysqli;
 class IncidentController
 {
     private Incident $model;
+    private ActivityLog $logger;
 
     public function __construct(mysqli $db)
     {
         $this->model = new Incident($db);
+        $this->logger = new ActivityLog($db);
     }
 
     public function handle(string $action): void
@@ -154,6 +157,16 @@ class IncidentController
             'reported_by'      => $userId,
         ]);
 
+        $this->logger->log(
+            $userId,
+            'CREATE',
+            'Incident',
+            $id,
+            'Reported incident: ' . $incidentType . ' (' . $severity . ')',
+            null,
+            ['incident_type' => $incidentType, 'severity' => $severity]
+        );
+
         Response::json(true, 'Incident reported.', ['id' => $id]);
     }
 
@@ -233,6 +246,16 @@ class IncidentController
             'reviewed_by'      => $reviewedBy,
             'resolved_at'      => $resolvedAt,
         ]);
+
+        $this->logger->log(
+            (int) Auth::user()['id'],
+            'UPDATE',
+            'Incident',
+            $id,
+            'Updated incident: ' . $incidentType . ' (Status: ' . $status . ')',
+            null,
+            ['incident_type' => $incidentType, 'status' => $status]
+        );
 
         Response::json(true, 'Incident updated.');
     }
