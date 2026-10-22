@@ -12,7 +12,7 @@ class Upload
     public const WEB_PREFIX = 'uploads';
 
     /** Maximum avatar size in bytes (2 MB). */
-    private const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+    private const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
     /** Allowed image MIME types mapped to their canonical extension. */
     private const AVATAR_TYPES = [

@@ -575,8 +575,8 @@
       var f = avatarInput.files && avatarInput.files[0];
       if (!f) return;
 
-      if (f.size > 2 * 1024 * 1024) {
-        formError.textContent = "Avatar must be 2 MB or smaller.";
+      if (f.size > 5 * 1024 * 1024) {
+        formError.textContent = "Avatar must be 5 MB or smaller.";
         formError.hidden = false;
         avatarInput.value = "";
         return;
