@@ -46,7 +46,7 @@ $recordsOpen = in_array($current, $recordsSections, true);
                 <button type="button"
                         class="sidebar-nav__item <?= $current === 'inmates' ? 'is-active' : '' ?>"
                         data-section="inmates">
-                    <i class="bi bi-person-badge"></i><span>Inmates</span>
+                    <i class="bi bi-person-badge"></i><span>PDL</span>
                 </button>
                 <button type="button"
                         class="sidebar-nav__item <?= $current === 'visitors' ? 'is-active' : '' ?>"
@@ -107,7 +107,7 @@ $recordsOpen = in_array($current, $recordsSections, true);
                 <button type="button"
                         class="sidebar-nav__item <?= $current === 'inmates' ? 'is-active' : '' ?>"
                         data-section="inmates">
-                    <i class="bi bi-person-badge"></i><span>Inmate Records</span>
+                    <i class="bi bi-person-badge"></i><span>PDL Records</span>
                 </button>
                 <button type="button"
                         class="sidebar-nav__item <?= $current === 'visitors' ? 'is-active' : '' ?>"

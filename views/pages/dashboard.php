@@ -264,7 +264,7 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
 
                     <article class="card">
                         <header class="card__header">
-                            <h2 class="card__title">Inmates per Jail Unit</h2>
+                            <h2 class="card__title">PDL per Jail Unit</h2>
                         </header>
                         <div class="chart-container">
                             <canvas id="chartUnits" height="220"></canvas>
@@ -322,7 +322,7 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
                         </button>
                     <?php else: ?>
                         <button type="button" class="action-tile" id="quickRecordInmateBtn">
-                            <i class="bi bi-pencil-square"></i><span>Record new inmate</span>
+                            <i class="bi bi-pencil-square"></i><span>Record new PDL</span>
                         </button>
                         <button type="button" class="action-tile" id="quickSubmitHeadcountBtn">
                             <i class="bi bi-clipboard2-check"></i><span>Submit headcount</span>
