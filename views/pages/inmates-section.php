@@ -17,7 +17,7 @@ $isAdmin = Auth::isAdmin();
         </div>
         <div class="section-header__tools">
             <button type="button" class="btn-primary btn-sm" id="inmateCreateBtn">
-                <i class="bi bi-plus-lg"></i> New Inmate
+                <i class="bi bi-plus-lg"></i> New PDL
             </button>
             <?php if ($isAdmin): ?>
                 <button type="button" class="btn-secondary btn-sm" id="inmateExportBtn">
@@ -37,9 +37,7 @@ $isAdmin = Auth::isAdmin();
                         placeholder="Search by inmate no., case ref., or name" aria-label="Search inmates">
                 </div>
 
-                <select id="inmateJailUnitFilter" class="input-select" aria-label="Filter by jail unit">
-                    <option value="">All jail units</option>
-                </select>
+                <!-- Jail Unit filter removed -->
 
                 <select id="inmateStatusFilter" class="input-select" aria-label="Filter by custody status">
                     <option value="">All statuses</option>
@@ -195,7 +193,6 @@ $isAdmin = Auth::isAdmin();
                                      style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #e2e8f0; border: 1px solid #cbd5e1; display: none;">
                                 <div>
                                     <input type="file" id="editAvatarInput" accept="image/jpeg, image/png, image/webp" style="display: none;">
-                                    <!-- FIX: Added ID to the button -->
                                     <button type="button" class="btn-secondary btn-sm" id="editAvatarBtn" onclick="document.getElementById('editAvatarInput').click();">
                                         <i class="bi bi-camera"></i> Change Photo
                                     </button>

@@ -47,9 +47,11 @@ class DashboardController
         }
     }
 
-            private function staffAnalytics(): void
+                private function staffAnalytics(): void
     {
         $userId = (int) Auth::user()['id'];
+        
+        // Allow up to 365 days
         $days = max(7, min(365, (int) ($_GET['days'] ?? 7)));
         $mode = $_GET['mode'] ?? 'daily';
 

@@ -160,7 +160,6 @@
     console.log("[dashboard] section shown:", name);
   }
 
-  // Attach click handlers to every [data-section] trigger
   triggers.forEach(function (t) {
     t.addEventListener("click", function (e) {
       var name = e.currentTarget.dataset.section;
@@ -170,7 +169,6 @@
     });
   });
 
-  // Mobile sidebar toggle
   if (menuBtn && sidebar) {
     menuBtn.addEventListener("click", function (e) {
       e.preventDefault();
@@ -239,7 +237,6 @@
     setTimeout(dismissAlert, 4000);
   }
 
-  // Non-chart tab groups (chart ones are handled below)
   document
     .querySelectorAll(".tab-group:not([data-chart-range])")
     .forEach(function (group) {
@@ -253,7 +250,6 @@
       });
     });
 
-  // Back/forward
   window.addEventListener("popstate", function () {
     showSection(getSectionFromUrl(), false);
   });
@@ -291,7 +287,7 @@
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
 
-    /* ============================================================
+  /* ============================================================
      STAFF CHARTS
      ============================================================ */
      
@@ -310,7 +306,7 @@
       });
   }
 
-    function renderStaffCharts(a, days, mode) {
+  function renderStaffCharts(a, days, mode) {
     if (!window.Chart) return;
 
     /* --- Staff Line Chart (Visitors Trend) --- */
@@ -318,9 +314,15 @@
     if (lineCanvas && a.visitors_line) {
       if (staffCharts.line) staffCharts.line.destroy();
       
+      // ✅ FIX: Format labels based on the timeframe
       var lineLabels = a.visitors_line.map(function (r) {
           var d = new Date(r.date + "T00:00:00");
-          return days >= 30 ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : d.toLocaleDateString('en-US', { weekday: 'short' });
+          if (days === 365) {
+            return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          }
+          return days >= 30 
+            ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) 
+            : d.toLocaleDateString('en-US', { weekday: 'short' });
       });
 
       staffCharts.line = new Chart(lineCanvas, {
@@ -343,7 +345,14 @@
           plugins: { legend: { display: false } },
           scales: {
             y: { beginAtZero: true, ticks: { precision: 0 } },
-            x: { grid: { display: false } }
+            x: { 
+              grid: { display: false },
+              ticks: {
+                maxTicksLimit: 12,
+                maxRotation: 45,
+                minRotation: 45
+              }
+            }
           }
         }
       });
@@ -370,14 +379,21 @@
           plugins: { legend: { display: false } },
           scales: {
             y: { beginAtZero: true, ticks: { precision: 0 } },
-            x: { grid: { display: false } }
+            x: { 
+              grid: { display: false },
+              ticks: {
+                maxTicksLimit: 12,
+                maxRotation: 45,
+                minRotation: 45
+              }
+            }
           }
         }
       });
     }
   }
 
-  // Wire up staff Line chart tabs (Week/Month/Year)
+  // Wire up staff Line chart tabs
   var currentStaffDays = 7;
   var currentStaffMode = 'daily';
 
@@ -385,12 +401,16 @@
     btn.addEventListener("click", function(e) {
       document.querySelectorAll("#staffLineChartTabs .tab-btn").forEach(function(b) { b.classList.remove("is-active"); });
       e.target.classList.add("is-active");
-      currentStaffDays = parseInt(e.target.dataset.days, 10) || 7;
+      
+      var daysMap = { "Week": 7, "Month": 30, "Year": 365 };
+      var label = e.target.textContent.trim();
+      currentStaffDays = daysMap[label] || 7; 
+      
       loadStaffAnalytics(currentStaffDays, currentStaffMode);
     });
   });
 
-  // Wire up staff Bar chart tabs (Per Day / Hourly)
+  // Wire up staff Bar chart tabs
   document.querySelectorAll("#staffBarChartTabs .tab-btn").forEach(function(btn) {
     btn.addEventListener("click", function(e) {
       document.querySelectorAll("#staffBarChartTabs .tab-btn").forEach(function(b) { b.classList.remove("is-active"); });
@@ -404,10 +424,6 @@
      COUNTER ANIMATION
      ============================================================ */
 
-  /**
-   * Animates a number from its current value to a target value.
-   * Uses requestAnimationFrame for smooth 60fps rendering.
-   */
   function animateValue(obj, start, end, duration) {
     if (!obj) return;
     var startTimestamp = null;
@@ -416,7 +432,6 @@
       if (!startTimestamp) startTimestamp = timestamp;
       var progress = Math.min((timestamp - startTimestamp) / duration, 1);
       
-      // Easing out function (starts fast, slows down at the end)
       var easeOutQuart = 1 - Math.pow(1 - progress, 4);
       var current = Math.floor(easeOutQuart * (end - start) + start);
       
@@ -425,7 +440,6 @@
       if (progress < 1) {
         window.requestAnimationFrame(step);
       } else {
-        // Ensure exact final value
         obj.textContent = end.toLocaleString();
       }
     }
@@ -436,20 +450,17 @@
     var node = el(id);
     if (!node) return;
     
-    // Parse the target number
     var target = parseInt(value, 10);
     if (isNaN(target)) {
       node.textContent = value == null || value === "" ? "—" : value;
       return;
     }
 
-    // If it already has this value, don't animate
     var currentVal = parseInt(node.textContent.replace(/,/g, ''), 10);
     if (currentVal === target) return;
 
-    // Animate from 0 (or current value) to target
     var start = isNaN(currentVal) ? 0 : currentVal;
-    animateValue(node, start, target, 800); // 800ms duration
+    animateValue(node, start, target, 800);
   }
 
   function loadStats() {
@@ -533,7 +544,7 @@
   }
 
   /* ============================================================
-     CHARTS — safe rendering with canvas reuse protection
+     CHARTS — ADMIN
      ============================================================ */
 
   var charts = {};
@@ -621,11 +632,10 @@
   function renderCharts(a) {
     if (!window.Chart) return;
 
-        if (a.population_trend && a.population_trend.length) {
+    if (a.population_trend && a.population_trend.length) {
       safeCreate("population", el("chartPopulationTrend"), {
         type: "line",
         data: {
-          // ✅ Pass the raw YYYY-MM-DD string so Chart.js can parse it as a Date
           labels: a.population_trend.map(function (r) {
             return r.date; 
           }),
@@ -651,7 +661,7 @@
           scales: {
             y: { beginAtZero: true, ticks: { precision: 0 } },
             x: {
-              type: 'time', // ✅ Tell Chart.js to treat X as a timeline
+              type: 'time',
               time: {
                 unit: 'day',
                 tooltipFormat: 'MMM d, yyyy',
@@ -663,7 +673,7 @@
               ticks: {
                 maxRotation: 0,
                 autoSkip: true,
-                maxTicksLimit: 7 // Prevents label crowding
+                maxTicksLimit: 7
               }
             },
           },
@@ -785,7 +795,7 @@
           }),
           datasets: [
             {
-              label: "Open",
+              label: "Unresolved",
               data: a.incidents_by_severity.map(function (r) {
                 return r.open;
               }),
@@ -991,7 +1001,6 @@
         else if (range === "12M") days = 365;
         else days = 30;
 
-        // 💾 Remember the choice across page reloads
         try {
           localStorage.setItem("dashboardTrendRange", range);
         } catch (err) {}
@@ -1007,32 +1016,24 @@
 
   var statsLoaded = false;
 
-    function ensureOverviewData() {
+  function ensureOverviewData() {
     if (!statsLoaded) {
       statsLoaded = true;
       loadStats();
       loadActivity();
     }
 
-    // ============================================================
-    // STAFF LOGIC: Load the new visitor charts
-    // ============================================================
     if (!isAdmin) {
       loadStaffAnalytics(7, 'daily');
-      return; // Exit early for staff
+      return;
     }
 
-    // ============================================================
-    // ADMIN LOGIC: Restore saved chart range and load analytics
-    // ============================================================
-    // ---- Read the saved trend range ----
     var saved = "30D";
     try {
       var stored = localStorage.getItem("dashboardTrendRange");
       if (stored) saved = stored.trim().toUpperCase();
     } catch (err) {}
 
-    // ---- Validate it against the actual buttons ----
     var buttons = document.querySelectorAll(
       ".tab-group[data-chart-range] .tab-btn"
     );
@@ -1042,7 +1043,6 @@
       if (label === saved) matchedBtn = b;
     });
 
-    // If the saved range isn't a real button, fall back to 30D
     if (!matchedBtn) {
       saved = "30D";
       buttons.forEach(function (b) {
@@ -1050,20 +1050,16 @@
       });
     }
 
-    // ---- Update the active tab visual to match ----
     buttons.forEach(function (b) {
       b.classList.toggle("is-active", b === matchedBtn);
     });
 
-    // ---- Map range → days ----
     var days;
     if (saved === "7D") days = 7;
     else if (saved === "12M") days = 365;
     else days = 30;
 
     console.log("[dashboard] restoring range:", saved, "→", days, "days");
-
-    // ---- Load analytics with the saved range ----
     loadAnalytics(days);
   }
 
@@ -1073,22 +1069,13 @@
     }
   });
 
-  /* ============================================================
-     QUICK ACTIONS — Open Modals
-     ============================================================ */
-
   function triggerAction(sectionName) {
-    // 1. Navigate to the section
     showSection(sectionName);
-
-    // 2. Fire a custom event. The section's specific JS file (e.g., headcount.js, users.js)
-    // will listen for this event and open the modal once it's fully loaded.
     setTimeout(function () {
       document.dispatchEvent(new CustomEvent(sectionName + ":open-modal"));
     }, 100);
   }
 
-  // Admin Actions
   var qaReviewHeadcount = document.getElementById("quickReviewHeadcountBtn");
   if (qaReviewHeadcount) {
     qaReviewHeadcount.addEventListener("click", function () {
@@ -1110,7 +1097,6 @@
     });
   }
 
-  // Staff Actions
   var qaRecordInmate = document.getElementById("quickRecordInmateBtn");
   if (qaRecordInmate) {
     qaRecordInmate.addEventListener("click", function () {
@@ -1139,10 +1125,8 @@
     });
   }
 
-  // Initial render — show the section from URL
   showSection(getSectionFromUrl(), false);
 
-  // If overview is active, load its data now
   var overviewSection = el("dashboard-overview");
   if (overviewSection && overviewSection.classList.contains("is-visible")) {
     ensureOverviewData();

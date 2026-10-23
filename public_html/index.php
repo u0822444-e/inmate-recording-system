@@ -52,6 +52,7 @@ require_once __DIR__ . '/../app/helpers/Upload.php';
 require_once __DIR__ . '/../app/models/ActivityLog.php';
 require_once __DIR__ . '/../app/controllers/ActivityLogController.php';
 
+
 Auth::start();
 
 /* ----------------------------------------------------------
