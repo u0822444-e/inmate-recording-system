@@ -457,6 +457,8 @@
     formError.hidden = true;
     formError.textContent = '';
 
+    form.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
+
     inmateSelect.clear();
     document.getElementById('visitorInmateId').value = '';
 
@@ -583,12 +585,15 @@
   }
 
   /* ============================================================
-     SUBMIT
+     SUBMIT (ALL FIELDS REQUIRED)
      ============================================================ */
 
   if (form) {
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
+
+      form.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
+      formError.hidden = true;
 
       var payload = {
         id:           inputId.value ? Number(inputId.value) : 0,
@@ -605,52 +610,77 @@
         notes:        inputNotes.value.trim()
       };
 
+      var missing = [];
+
+      // Text fields
       if (!payload.full_name) {
-        formError.textContent = 'Visitor name is required.';
-        formError.hidden = false;
-        return;
+        missing.push('Full Name');
+        inputFullName.classList.add('is-invalid');
       }
+      if (!payload.address) {
+        missing.push('Address');
+        inputAddress.classList.add('is-invalid');
+      }
+      if (!payload.time_in) {
+        missing.push('Time In');
+        inputTimeIn.classList.add('is-invalid');
+      }
+
+      // Relationship (select + optional "Others" input)
+      if (!selectRelationship || !selectRelationship.value) {
+        missing.push('Relationship to PDL');
+        if (selectRelationship) selectRelationship.classList.add('is-invalid');
+      } else if (selectRelationship.value === 'Others' && !payload.relationship) {
+        missing.push('Specify Relationship');
+        if (relationshipOtherInput) relationshipOtherInput.classList.add('is-invalid');
+      }
+
+      // Purpose
+      if (!selectPurpose || !selectPurpose.value) {
+        missing.push('Purpose');
+        if (selectPurpose) selectPurpose.classList.add('is-invalid');
+      } else if (selectPurpose.value === 'Others' && !payload.purpose) {
+        missing.push('Specify Purpose');
+        if (purposeOtherInput) purposeOtherInput.classList.add('is-invalid');
+      }
+
+      // PDL
       if (!payload.inmate_id) {
-        formError.textContent = 'Please select the PDL being visited.';
-        formError.hidden = false;
-        return;
+        missing.push('PDL Visited');
+        var wrap = document.getElementById('visitorInmateWrap');
+        if (wrap) {
+          var input = wrap.querySelector('.searchable-select__control');
+          if (input) input.classList.add('is-invalid');
+        }
       }
-      if (selectRelationship && selectRelationship.value === 'Others' && payload.relationship === '') {
-        formError.textContent = 'Please specify the relationship.';
-        formError.hidden = false;
-        if (relationshipOtherInput) relationshipOtherInput.focus();
-        return;
+
+      // ID type / number — both or neither
+      if (payload.id_type && !payload.id_number) {
+        missing.push('ID Number');
+        if (inputIdNumber) inputIdNumber.classList.add('is-invalid');
+      } else if (!payload.id_type && payload.id_number) {
+        missing.push('ID Type');
+        if (inputIdType) inputIdType.classList.add('is-invalid');
       }
-      if (selectPurpose && selectPurpose.value === 'Others' && payload.purpose === '') {
-        formError.textContent = 'Please specify the purpose.';
+
+      if (missing.length > 0) {
+        formError.innerHTML = '<strong>Please fill in the following required fields:</strong><br>' + missing.join(', ');
         formError.hidden = false;
-        if (purposeOtherInput) purposeOtherInput.focus();
-        return;
-      }
-      if (!validatePhone(payload.contact_no)) {
-        formError.textContent = 'Please enter a valid contact number (e.g., 09171234567).';
-        formError.hidden = false;
-        if (inputContact) inputContact.focus();
         return;
       }
 
-      // ID validation
-      if (payload.id_type && !payload.id_number) {
-        formError.textContent = 'Please enter the ID number.';
+      // Format validation
+      if (!validatePhone(payload.contact_no)) {
+        formError.textContent = 'Please enter a valid contact number (e.g., 09171234567).';
         formError.hidden = false;
-        if (inputIdNumber) inputIdNumber.focus();
+        if (inputContact) { inputContact.focus(); inputContact.classList.add('is-invalid'); }
         return;
       }
-      if (!payload.id_type && payload.id_number) {
-        formError.textContent = 'Please choose the ID type.';
-        formError.hidden = false;
-        if (inputIdType) inputIdType.focus();
-        return;
-      }
+
       if (payload.id_type && payload.id_number && !validateIdNumber(payload.id_type, payload.id_number)) {
         formError.textContent = 'Invalid format for ' + payload.id_type + '.';
         formError.hidden = false;
-        if (inputIdNumber) inputIdNumber.focus();
+        if (inputIdNumber) { inputIdNumber.focus(); inputIdNumber.classList.add('is-invalid'); }
         return;
       }
 
@@ -796,7 +826,7 @@
   loadAllInmates();
   if (section.classList.contains('is-visible')) load();
 
-    document.addEventListener("visitors:open-modal", function () {
+  document.addEventListener("visitors:open-modal", function () {
     var btn = document.getElementById("visitorCreateBtn");
     if (btn) btn.click();
   });

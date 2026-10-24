@@ -681,7 +681,7 @@
       });
     }
 
-    if (a.classification && a.classification.length) {
+        if (a.classification && a.classification.length) {
       safeCreate("classification", el("chartClassification"), {
         type: "doughnut",
         data: {
@@ -698,7 +698,18 @@
             },
           ],
         },
-        options: { cutout: "62%", plugins: { legend: { position: "bottom" } } },
+        options: {
+          cutout: "62%",
+          plugins: { 
+            legend: { 
+              position: "bottom",
+              labels: {
+                // Only show the legend if there is more than 1 classification
+                display: a.classification.length > 1 
+              }
+            } 
+          }
+        },
       });
     }
 

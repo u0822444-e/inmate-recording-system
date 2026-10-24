@@ -299,6 +299,8 @@
     errorBox.hidden = true;
     errorBox.textContent = '';
 
+    form.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
+
     jailUnitSelect.clear();
     provinceSelect.clear();
     municipalitySelect.clear();
@@ -325,7 +327,6 @@
     lastAutoMax = null;
     updateSentenceBadge();
 
-    // Preload the auto-generated numbers
     loadNextPdl();
     loadNextCase();
 
@@ -344,7 +345,6 @@
 
   if (openBtn) openBtn.addEventListener('click', openModal);
 
-  // Strict close — only via explicit buttons
   if (modal) {
     modal.addEventListener('click', function (e) {
       if (e.target.closest('[data-inmate-create-close]')) closeModal();
@@ -352,11 +352,14 @@
   }
 
   /* ============================================================
-     SUBMIT
+     SUBMIT (ALL FIELDS REQUIRED)
      ============================================================ */
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
+
+    form.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
+    errorBox.hidden = true;
 
     var payload = {
       inmate_number:      document.getElementById('inmateNumber').value,
@@ -385,18 +388,60 @@
       notes:              document.getElementById('inmateNotes').value.trim()
     };
 
-    if (!payload.first_name || !payload.last_name) {
-      errorBox.textContent = 'First name and last name are required.';
-      errorBox.hidden = false;
-      return;
+    var missing = [];
+
+    var textFields = [
+      { id: 'inmateFirstName', key: 'first_name', label: 'First name' },
+      { id: 'inmateMiddleName', key: 'middle_name', label: 'Middle name' },
+      { id: 'inmateLastName', key: 'last_name', label: 'Last name' },
+      { id: 'inmateDob', key: 'date_of_birth', label: 'Date of birth' },
+      { id: 'inmateCivilStatus', key: 'civil_status', label: 'Civil status' },
+      { id: 'inmateCommittedAt', key: 'committed_at', label: 'Committed date' },
+      { id: 'inmateAdmissionDate', key: 'admission_date', label: 'Admission date' }
+    ];
+
+    textFields.forEach(function(f) {
+      if (!payload[f.key]) {
+        missing.push(f.label);
+        var el = document.getElementById(f.id);
+        if (el) el.classList.add('is-invalid');
+      }
+    });
+
+    var selectFields = [
+      { key: 'jail_unit_id', label: 'Jail Unit', wrapId: 'inmateJailUnitWrap' },
+      { key: 'province', label: 'Province', wrapId: 'inmateProvinceWrap' },
+      { key: 'municipality_id', label: 'Municipality', wrapId: 'inmateMunicipalityWrap' },
+      { key: 'barangay_id', label: 'Barangay', wrapId: 'inmateBarangayWrap' },
+      { key: 'offense_id', label: 'Offense', wrapId: 'inmateOffenseWrap' }
+    ];
+
+    selectFields.forEach(function(f) {
+      if (!payload[f.key]) {
+        missing.push(f.label);
+        var wrap = document.getElementById(f.wrapId);
+        if (wrap) {
+            var input = wrap.querySelector('.searchable-select__control');
+            if (input) input.classList.add('is-invalid');
+        }
+      }
+    });
+
+    if (!payload.sentence) {
+      missing.push('Sentence');
+      sentenceInput.classList.add('is-invalid');
     }
-    if (!payload.jail_unit_id) {
-      errorBox.textContent = 'Please select a jail unit.';
-      errorBox.hidden = false;
-      return;
+    if (!payload.sentence_years_min) {
+      missing.push('Years (min)');
+      sentenceMin.classList.add('is-invalid');
     }
-    if (!payload.offense_id) {
-      errorBox.textContent = 'Please select an offense.';
+    if (!payload.sentence_years_max) {
+      missing.push('Years (max)');
+      sentenceMax.classList.add('is-invalid');
+    }
+
+    if (missing.length > 0) {
+      errorBox.innerHTML = '<strong>Please fill in the following required fields:</strong><br>' + missing.join(', ');
       errorBox.hidden = false;
       return;
     }
@@ -438,7 +483,6 @@
         message: 'Record ' + payload.inmate_number + ' has been created successfully.'
       });
 
-      // Notify the list to refresh
       document.dispatchEvent(new CustomEvent('inmates:changed'));
     }).catch(function (err) {
       errorBox.textContent = err.message;

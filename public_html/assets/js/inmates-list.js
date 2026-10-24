@@ -31,7 +31,7 @@
   
   var editAvatarPreview = document.getElementById('editAvatarPreview');
   var editAvatarInput   = document.getElementById('editAvatarInput');
-  var editAvatarBtn     = document.getElementById('editAvatarBtn'); // FIX: Added reference
+  var editAvatarBtn     = document.getElementById('editAvatarBtn');
 
   var editId          = document.getElementById('editInmateId');
   var editInmateNumber = document.getElementById('editInmateNumber');
@@ -738,6 +738,8 @@
     editError.textContent = '';
     editForm.reset();
 
+    editForm.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
+
     editJailUnitSelect.clear();
     editProvinceSelect.clear();
     editMunicipalitySelect.clear();
@@ -906,12 +908,15 @@
   }
 
   /* ============================================================
-     EDIT SUBMIT
+     EDIT SUBMIT (ALL FIELDS REQUIRED)
      ============================================================ */
 
   if (editForm) {
     editForm.addEventListener('submit', async function (e) {
       e.preventDefault();
+
+      editForm.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
+      editError.hidden = true;
 
       var payload = {
         id:                 Number(editId.value),
@@ -941,23 +946,60 @@
         notes:              editNotes.value.trim()
       };
 
-      var originalStatus = editModal.dataset.originalStatus || '';
-      if (originalStatus === 'Released' && payload.custody_status !== 'Released') {
-        payload.custody_status = 'Released';
+      var missing = [];
+
+      var textFields = [
+        { id: 'editFirstName', key: 'first_name', label: 'First name' },
+        { id: 'editMiddleName', key: 'middle_name', label: 'Middle name' },
+        { id: 'editLastName', key: 'last_name', label: 'Last name' },
+        { id: 'editDob', key: 'date_of_birth', label: 'Date of birth' },
+        { id: 'editCivilStatus', key: 'civil_status', label: 'Civil status' },
+        { id: 'editCommittedAt', key: 'committed_at', label: 'Committed date' },
+        { id: 'editAdmission', key: 'admission_date', label: 'Admission date' }
+      ];
+
+      textFields.forEach(function(f) {
+        if (!payload[f.key]) {
+          missing.push(f.label);
+          var el = document.getElementById(f.id);
+          if (el) el.classList.add('is-invalid');
+        }
+      });
+
+      var selectFields = [
+        { key: 'jail_unit_id', label: 'Jail Unit', wrapId: 'editJailUnitWrap' },
+        { key: 'province', label: 'Province', wrapId: 'editProvinceWrap' },
+        { key: 'municipality_id', label: 'Municipality', wrapId: 'editMunicipalityWrap' },
+        { key: 'barangay_id', label: 'Barangay', wrapId: 'editBarangayWrap' },
+        { key: 'offense_id', label: 'Offense', wrapId: 'editOffenseWrap' }
+      ];
+
+      selectFields.forEach(function(f) {
+        if (!payload[f.key]) {
+          missing.push(f.label);
+          var wrap = document.getElementById(f.wrapId);
+          if (wrap) {
+              var input = wrap.querySelector('.searchable-select__control');
+              if (input) input.classList.add('is-invalid');
+          }
+        }
+      });
+
+      if (!payload.sentence) {
+        missing.push('Sentence');
+        editSentence.classList.add('is-invalid');
+      }
+      if (!payload.sentence_years_min) {
+        missing.push('Years (min)');
+        editSentenceMin.classList.add('is-invalid');
+      }
+      if (!payload.sentence_years_max) {
+        missing.push('Years (max)');
+        editSentenceMax.classList.add('is-invalid');
       }
 
-      if (!payload.first_name || !payload.last_name) {
-        editError.textContent = 'First name and last name are required.';
-        editError.hidden = false;
-        return;
-      }
-      if (!payload.jail_unit_id) {
-        editError.textContent = 'Please select a jail unit.';
-        editError.hidden = false;
-        return;
-      }
-      if (!payload.offense_id) {
-        editError.textContent = 'Please select an offense.';
+      if (missing.length > 0) {
+        editError.innerHTML = '<strong>Please fill in the following required fields:</strong><br>' + missing.join(', ');
         editError.hidden = false;
         return;
       }
@@ -1024,7 +1066,6 @@
       formData.append('id', id);
       formData.append('avatar', file);
 
-      // Visual feedback (FIX: uses the new explicit variable)
       var originalText = '';
       if (editAvatarBtn) {
         originalText = editAvatarBtn.innerHTML;
@@ -1042,7 +1083,7 @@
         if (!data.success) throw new Error(data.message || 'Upload failed');
         
         if (editAvatarPreview) {
-            editAvatarPreview.src = data.avatar_path + '?t=' + Date.now(); // cache bust
+            editAvatarPreview.src = data.avatar_path + '?t=' + Date.now();
             editAvatarPreview.style.display = 'block';
         }
         
@@ -1056,7 +1097,7 @@
             editAvatarBtn.innerHTML = originalText;
             editAvatarBtn.disabled = false;
         }
-        editAvatarInput.value = ''; // clear input
+        editAvatarInput.value = '';
       });
     });
   }
@@ -1175,7 +1216,7 @@
     load(true);
   });
 
-    document.addEventListener("inmates:open-modal", function () {
+  document.addEventListener("inmates:open-modal", function () {
     var btn = document.getElementById("inmateCreateBtn");
     if (btn) btn.click();
   });
