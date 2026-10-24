@@ -147,7 +147,7 @@ if ($route === 'activity-logs') {
    ---------------------------------------------------------- */
 $isAuthenticated = Auth::isLoggedIn();
 $isAdmin         = Auth::isAdmin();
-$pageTitle       = 'Ipil District Jail - Inmate Recording System';
+$pageTitle       = 'Ipil District Jail - PDL Recording System';
 
 require_once __DIR__ . '/../views/components/header.php';
 

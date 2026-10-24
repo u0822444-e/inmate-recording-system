@@ -14,7 +14,7 @@ declare(strict_types=1);
             <div class="auth-brand__copy">
                 <p class="auth-brand__eyebrow">Bureau of Jail Management and Penology</p>
                 <h1 class="auth__title">Ipil District Jail</h1>
-                <p class="auth__subtitle">Inmate Recording System</p>
+                <p class="auth__subtitle">PDL Recording System</p>
             </div>
         </div>
 

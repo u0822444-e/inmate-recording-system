@@ -12,7 +12,7 @@ $isAdmin = Auth::isAdmin();
 
     <header class="section-header">
         <div>
-            <h1>Inmate Records</h1>
+            <h1>PDL Records</h1>
             <p>Search, filter, and review PDL records.</p>
         </div>
         <div class="section-header__tools">

@@ -111,7 +111,7 @@ $isAdmin = Auth::isAdmin();
                         </label>
                         <label class="field">
                             <span>Relationship to PDL</span>
-                            <select id="visitorRelationship">
+                            <select id="visitorRelationship" required>
                                 <option value="">—</option>
                                 <option>Mother</option>
                                 <option>Father</option>
@@ -145,7 +145,7 @@ $isAdmin = Auth::isAdmin();
                     <div class="form-grid-row">
                         <label class="field" style="grid-column: span 3;">
                             <span>Address</span>
-                            <input type="text" id="visitorAddress" maxlength="255">
+                            <input type="text" id="visitorAddress" required maxlength="255">
                         </label>
                     </div>
                 </fieldset>
@@ -188,7 +188,7 @@ $isAdmin = Auth::isAdmin();
                     <div class="form-grid-row">
                         <label class="field">
                             <span>Purpose</span>
-                            <select id="visitorPurpose">
+                            <select id="visitorPurpose" required>
                                 <option value="">—</option>
                                 <option>Family Visit</option>
                                 <option>Legal Counsel</option>
