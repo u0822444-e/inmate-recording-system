@@ -201,13 +201,15 @@ class VisitorController
             'notes'        => $notes,
         ]);
 
+        $oldRecord = $this->model->find($id);
+        
         $this->logger->log(
             (int) Auth::user()['id'],
             'UPDATE',
             'Visitor',
             $id,
             'Updated visitor record: ' . $fullName,
-            null,
+            $oldRecord ?: null,      // ← Pass the old data
             ['full_name' => $fullName, 'inmate_id' => $inmateId]
         );
 

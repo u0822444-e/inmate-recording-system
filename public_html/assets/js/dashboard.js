@@ -879,14 +879,6 @@
               backgroundColor: THEME.primary,
               borderRadius: 4,
             },
-            {
-              label: "Female",
-              data: a.inmates_by_unit.map(function (r) {
-                return r.female;
-              }),
-              backgroundColor: THEME.pink,
-              borderRadius: 4,
-            },
           ],
         },
         options: {
