@@ -16,7 +16,7 @@ $recordsOpen = in_array($current, $recordsSections, true);
         <img src="assets/images/bjmp-logo.png" alt="" class="sidebar-brand__logo">
         <div class="sidebar-brand__copy">
             <strong>IPIL DISTRICT JAIL</strong>
-            <span>Inmate Recording System</span>
+            <span>PDL Recording System</span>
         </div>
     </div>
 
