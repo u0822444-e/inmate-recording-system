@@ -95,7 +95,6 @@
 
   /* ============================================================
      MAKE MUNICIPALITY ROWS CLICKABLE
-     Call after setting output.innerHTML, only for reports with municipality.
      ============================================================ */
 
   function makeMunicipalityRowsClickable() {
@@ -105,10 +104,8 @@
       var firstCell = tr.querySelector('td:first-child');
       if (!firstCell) return;
 
-      // Add a class for styling
       tr.classList.add('report-row--clickable');
 
-      // Add a small caret icon inside the first cell
       var originalText = firstCell.textContent.trim();
       firstCell.innerHTML =
         '<span class="report-row__label">' +
@@ -133,7 +130,6 @@
       ? 'escorts-by-barangay'
       : 'actual-population-by-barangay';
 
-    // Set a sensible title while loading
     if (drilldownTitle) {
       drilldownTitle.textContent = 'Barangays of ' + municipalityName;
     }
@@ -163,7 +159,6 @@
     document.body.classList.remove('modal-open');
   }
 
-  // Modal only closes via explicit [data-report-drilldown-close] buttons
   if (drilldownModal) {
     drilldownModal.addEventListener('click', function (e) {
       if (e.target.closest('[data-report-drilldown-close]')) closeDrilldown();
@@ -172,7 +167,6 @@
 
   /* ============================================================
      RENDER BARANGAY REPORT (drilldown)
-     Reuses the same column structure as the municipality report.
      ============================================================ */
 
   function renderBarangayReport(data) {
@@ -188,7 +182,6 @@
     }
 
     if (currentReport === 'escorts') {
-      // Escorts drilldown — same 17-column layout, first col is "Barangay"
       var purposes = [
         { key: 'court',      label: 'Court' },
         { key: 'hospital',   label: 'Hospital' },
@@ -200,31 +193,27 @@
         { key: 'other',      label: 'Other' },
       ];
 
+      // REMOVED FEMALE COLUMNS
       html += '<div class="table-wrap report-table__wrap">' +
         '<table class="report-table report-table--actual"><thead>' +
         '<tr><th rowspan="2">Barangay</th>';
       purposes.forEach(function (p) {
-        html += '<th colspan="2">' + esc(p.label) + '</th>';
+        html += '<th rowspan="2">' + esc(p.label) + '</th>';
       });
-      html += '<th rowspan="2" class="ta-right">Total</th></tr><tr>';
-      purposes.forEach(function () {
-        html += '<th>M</th><th>F</th>';
-      });
-      html += '</tr></thead><tbody>';
+      html += '<th rowspan="2" class="ta-right">Total</th></tr>';
+      html += '</thead><tbody>';
 
       rows.forEach(function (r) {
         html += '<tr><td>' + esc(r.barangay) + '</td>';
         purposes.forEach(function (p) {
-          html += '<td class="ta-right">' + num(r[p.key + '_male']) + '</td>' +
-                  '<td class="ta-right">' + num(r[p.key + '_female']) + '</td>';
+          html += '<td class="ta-right">' + num(r[p.key + '_male']) + '</td>';
         });
         html += '<td class="ta-right"><strong>' + num(r.total) + '</strong></td></tr>';
       });
 
       html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>';
       purposes.forEach(function (p) {
-        html += '<td class="ta-right">' + num(totals[p.key + '_male']) + '</td>' +
-                '<td class="ta-right">' + num(totals[p.key + '_female']) + '</td>';
+        html += '<td class="ta-right">' + num(totals[p.key + '_male']) + '</td>';
       });
       html += '<td class="ta-right">' + num(totals.total) + '</td></tr></tfoot></table></div>';
 
@@ -232,26 +221,23 @@
       return;
     }
 
-    // Default: Actual Population drilldown (barangay version)
+    // Default: Actual Population drilldown
+    // REMOVED FEMALE COLUMNS
     html +=
       '<div class="table-wrap report-table__wrap">' +
       '<table class="report-table report-table--actual">' +
         '<thead>' +
           '<tr>' +
-            '<th rowspan="3">Barangay</th>' +
-            '<th colspan="2" rowspan="2">Detainee</th>' +
+            '<th rowspan="2">Barangay</th>' +
+            '<th rowspan="2">Detainee</th>' +
             '<th rowspan="2">Total<br>Detainees</th>' +
-            '<th colspan="8">Sentenced</th>' +
+            '<th colspan="4">Sentenced</th>' +
             '<th rowspan="2">Total<br>Sentenced</th>' +
             '<th rowspan="2">Grand<br>Total</th>' +
           '</tr>' +
           '<tr>' +
-            '<th colspan="2">Municipal</th><th colspan="2">City</th>' +
-            '<th colspan="2">Provincial</th><th colspan="2">Insular</th>' +
-          '</tr>' +
-          '<tr>' +
-            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
-            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
+            '<th>Municipal</th><th>City</th>' +
+            '<th>Provincial</th><th>Insular</th>' +
           '</tr>' +
         '</thead><tbody>';
 
@@ -259,16 +245,11 @@
       html += '<tr>' +
         '<td>' + esc(r.barangay) + '</td>' +
         '<td class="ta-right">' + num(r.detainee_male) + '</td>' +
-        '<td class="ta-right">' + num(r.detainee_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.detainee_total) + '</strong></td>' +
         '<td class="ta-right">' + num(r.municipal_male) + '</td>' +
-        '<td class="ta-right">' + num(r.municipal_female) + '</td>' +
         '<td class="ta-right">' + num(r.city_male) + '</td>' +
-        '<td class="ta-right">' + num(r.city_female) + '</td>' +
         '<td class="ta-right">' + num(r.provincial_male) + '</td>' +
-        '<td class="ta-right">' + num(r.provincial_female) + '</td>' +
         '<td class="ta-right">' + num(r.insular_male) + '</td>' +
-        '<td class="ta-right">' + num(r.insular_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.sentenced_total) + '</strong></td>' +
         '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
         '</tr>';
@@ -276,16 +257,11 @@
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
       '<td class="ta-right">' + num(totals.detainee_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.detainee_female) + '</td>' +
       '<td class="ta-right">' + num(totals.detainee_total) + '</td>' +
       '<td class="ta-right">' + num(totals.municipal_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.municipal_female) + '</td>' +
       '<td class="ta-right">' + num(totals.city_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.city_female) + '</td>' +
       '<td class="ta-right">' + num(totals.provincial_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.provincial_female) + '</td>' +
       '<td class="ta-right">' + num(totals.insular_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.insular_female) + '</td>' +
       '<td class="ta-right">' + num(totals.sentenced_total) + '</td>' +
       '<td class="ta-right">' + num(totals.grand_total) + '</td>' +
       '</tr></tfoot></table></div>';
@@ -299,7 +275,7 @@
 
   function renderPopulation(data) {
     var rows   = data.rows   || [];
-    var totals = data.totals || { male: 0, female: 0, total: 0 };
+    var totals = data.totals || { male: 0, total: 0 };
     var pct    = data.percents;
 
     var html = renderReportHeader(data.meta);
@@ -309,26 +285,23 @@
       return;
     }
 
+    // REMOVED FEMALE COLUMN
     html +=
       '<div class="table-wrap report-table__wrap"><table class="report-table">' +
         '<thead><tr>' +
-          '<th rowspan="2">Classification</th>' +
-          '<th colspan="2" class="report-table__group">Sex</th>' +
-          '<th rowspan="2" class="ta-right">Total</th>' +
-        '</tr><tr>' +
-          '<th class="ta-right">Male</th><th class="ta-right">Female</th>' +
+          '<th>Classification</th>' +
+          '<th class="ta-right">Male</th>' +
+          '<th class="ta-right">Total</th>' +
         '</tr></thead><tbody>';
 
     rows.forEach(function (r) {
       html += '<tr><td>' + esc(r.classification) + '</td>' +
         '<td class="ta-right">' + num(r.male) + '</td>' +
-        '<td class="ta-right">' + num(r.female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.total) + '</strong></td></tr>';
     });
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
       '<td class="ta-right">' + num(totals.male) + '</td>' +
-      '<td class="ta-right">' + num(totals.female) + '</td>' +
       '<td class="ta-right">' + num(totals.total) + '</td>' +
       '</tr></tfoot></table></div>';
 
@@ -357,22 +330,19 @@
       return;
     }
 
+    // REMOVED FEMALE COLUMNS
     html +=
       '<div class="table-wrap report-table__wrap"><table class="report-table report-table--actual">' +
         '<thead>' +
           '<tr>' +
-            '<th rowspan="3">Classification</th>' +
-            '<th colspan="2" rowspan="2">Detainee</th>' +
-            '<th colspan="8">Sentenced</th>' +
-            '<th rowspan="3">Grand Total</th>' +
+            '<th rowspan="2">Classification</th>' +
+            '<th rowspan="2">Detainee</th>' +
+            '<th colspan="4">Sentenced</th>' +
+            '<th rowspan="2">Grand Total</th>' +
           '</tr>' +
           '<tr>' +
-            '<th colspan="2">Municipal</th><th colspan="2">City</th>' +
-            '<th colspan="2">Provincial</th><th colspan="2">Insular</th>' +
-          '</tr>' +
-          '<tr>' +
-            '<th>M</th><th>F</th><th>M</th><th>F</th><th>M</th><th>F</th>' +
-            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
+            '<th>Municipal</th><th>City</th>' +
+            '<th>Provincial</th><th>Insular</th>' +
           '</tr>' +
         '</thead><tbody>';
 
@@ -380,30 +350,20 @@
       html += '<tr>' +
         '<td>' + esc(r.classification) + '</td>' +
         '<td class="ta-right">' + num(r.detainee_male) + '</td>' +
-        '<td class="ta-right">' + num(r.detainee_female) + '</td>' +
         '<td class="ta-right">' + num(r.municipal_male) + '</td>' +
-        '<td class="ta-right">' + num(r.municipal_female) + '</td>' +
         '<td class="ta-right">' + num(r.city_male) + '</td>' +
-        '<td class="ta-right">' + num(r.city_female) + '</td>' +
         '<td class="ta-right">' + num(r.provincial_male) + '</td>' +
-        '<td class="ta-right">' + num(r.provincial_female) + '</td>' +
         '<td class="ta-right">' + num(r.insular_male) + '</td>' +
-        '<td class="ta-right">' + num(r.insular_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
         '</tr>';
     });
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
       '<td class="ta-right">' + num(totals.detainee_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.detainee_female) + '</td>' +
       '<td class="ta-right">' + num(totals.municipal_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.municipal_female) + '</td>' +
       '<td class="ta-right">' + num(totals.city_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.city_female) + '</td>' +
       '<td class="ta-right">' + num(totals.provincial_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.provincial_female) + '</td>' +
       '<td class="ta-right">' + num(totals.insular_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.insular_female) + '</td>' +
       '<td class="ta-right">' + num(totals.grand_total) + '</td>' +
       '</tr></tfoot></table></div>';
 
@@ -425,33 +385,30 @@
       return;
     }
 
+    // REMOVED FEMALE COLUMNS
     html +=
       '<div class="table-wrap report-table__wrap"><table class="report-table">' +
         '<thead><tr>' +
           '<th rowspan="2">Date</th>' +
-          '<th colspan="3" class="report-table__group">Committed</th>' +
-          '<th colspan="3" class="report-table__group">Released</th>' +
+          '<th colspan="2" class="report-table__group">Committed</th>' +
+          '<th colspan="2" class="report-table__group">Released</th>' +
         '</tr><tr>' +
-          '<th class="ta-right">M</th><th class="ta-right">F</th><th class="ta-right">Total</th>' +
-          '<th class="ta-right">M</th><th class="ta-right">F</th><th class="ta-right">Total</th>' +
+          '<th class="ta-right">M</th><th class="ta-right">Total</th>' +
+          '<th class="ta-right">M</th><th class="ta-right">Total</th>' +
         '</tr></thead><tbody>';
 
     rows.forEach(function (r) {
       html += '<tr><td>' + esc(formatDayLabel(r.day)) + '</td>' +
         '<td class="ta-right">' + num(r.committed_male) + '</td>' +
-        '<td class="ta-right">' + num(r.committed_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.committed_total) + '</strong></td>' +
         '<td class="ta-right">' + num(r.released_male) + '</td>' +
-        '<td class="ta-right">' + num(r.released_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.released_total) + '</strong></td></tr>';
     });
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
       '<td class="ta-right">' + num(totals.committed_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.committed_female) + '</td>' +
       '<td class="ta-right">' + num(totals.committed_total) + '</td>' +
       '<td class="ta-right">' + num(totals.released_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.released_female) + '</td>' +
       '<td class="ta-right">' + num(totals.released_total) + '</td>' +
       '</tr></tfoot></table></div>';
 
@@ -473,26 +430,25 @@
       return;
     }
 
+    // REMOVED FEMALE COLUMNS
     html +=
       '<div class="table-wrap report-table__wrap"><table class="report-table">' +
         '<thead><tr>' +
           '<th rowspan="2">Jail Unit</th>' +
-          '<th colspan="3" class="report-table__group">Committed</th>' +
-          '<th colspan="3" class="report-table__group">Released</th>' +
+          '<th colspan="2" class="report-table__group">Committed</th>' +
+          '<th colspan="2" class="report-table__group">Released</th>' +
           '<th rowspan="2" class="ta-right">Grand Total</th>' +
         '</tr><tr>' +
-          '<th class="ta-right">M</th><th class="ta-right">F</th><th class="ta-right">Total</th>' +
-          '<th class="ta-right">M</th><th class="ta-right">F</th><th class="ta-right">Total</th>' +
+          '<th class="ta-right">M</th><th class="ta-right">Total</th>' +
+          '<th class="ta-right">M</th><th class="ta-right">Total</th>' +
         '</tr></thead><tbody>';
 
     rows.forEach(function (r) {
       html += '<tr>' +
         '<td>' + esc(r.jail_unit_name) + '<br><small class="meta-text">' + esc(r.dormitory) + '</small></td>' +
         '<td class="ta-right">' + num(r.committed_male) + '</td>' +
-        '<td class="ta-right">' + num(r.committed_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.committed_total) + '</strong></td>' +
         '<td class="ta-right">' + num(r.released_male) + '</td>' +
-        '<td class="ta-right">' + num(r.released_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.released_total) + '</strong></td>' +
         '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
         '</tr>';
@@ -500,10 +456,8 @@
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
       '<td class="ta-right">' + num(totals.committed_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.committed_female) + '</td>' +
       '<td class="ta-right">' + num(totals.committed_total) + '</td>' +
       '<td class="ta-right">' + num(totals.released_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.released_female) + '</td>' +
       '<td class="ta-right">' + num(totals.released_total) + '</td>' +
       '<td class="ta-right">' + num(totals.grand_total) + '</td>' +
       '</tr></tfoot></table></div>';
@@ -517,7 +471,7 @@
 
   function renderDrugCases(data) {
     var rows   = data.rows   || [];
-    var totals = data.totals || { male: 0, female: 0, total: 0 };
+    var totals = data.totals || { male: 0, total: 0 };
 
     var html = renderReportHeader(data.meta);
     if (!rows.length) {
@@ -525,26 +479,23 @@
       return;
     }
 
+    // REMOVED FEMALE COLUMN
     html +=
       '<div class="table-wrap report-table__wrap"><table class="report-table">' +
         '<thead><tr>' +
-          '<th rowspan="2">Classification</th>' +
-          '<th colspan="2" class="report-table__group">Sex</th>' +
-          '<th rowspan="2" class="ta-right">Total</th>' +
-        '</tr><tr>' +
-          '<th class="ta-right">Male</th><th class="ta-right">Female</th>' +
+          '<th>Classification</th>' +
+          '<th class="ta-right">Male</th>' +
+          '<th class="ta-right">Total</th>' +
         '</tr></thead><tbody>';
 
     rows.forEach(function (r) {
       html += '<tr><td>' + esc(r.classification) + '</td>' +
         '<td class="ta-right">' + num(r.male) + '</td>' +
-        '<td class="ta-right">' + num(r.female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.total) + '</strong></td></tr>';
     });
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
       '<td class="ta-right">' + num(totals.male) + '</td>' +
-      '<td class="ta-right">' + num(totals.female) + '</td>' +
       '<td class="ta-right">' + num(totals.total) + '</td>' +
       '</tr></tfoot></table></div>';
 
@@ -566,27 +517,28 @@
       return;
     }
 
+    // REMOVED FEMALE COLUMNS
     html +=
       '<div class="table-wrap report-table__wrap">' +
       '<table class="report-table report-table--actual">' +
         '<thead>' +
           '<tr>' +
-            '<th rowspan="3">Classification</th>' +
-            '<th colspan="8">Sentenced</th>' +
-            '<th colspan="8">Awaiting / On Trial</th>' +
-            '<th rowspan="3">Total</th>' +
+            '<th rowspan="2">Classification</th>' +
+            '<th colspan="4">Sentenced</th>' +
+            '<th colspan="4">Awaiting / On Trial</th>' +
+            '<th rowspan="2">Total</th>' +
           '</tr>' +
           '<tr>' +
-            '<th colspan="4">R.A. 6425</th>' +
-            '<th colspan="4">R.A. 9165</th>' +
-            '<th colspan="4">R.A. 6425</th>' +
-            '<th colspan="4">R.A. 9165</th>' +
+            '<th colspan="2">R.A. 6425</th>' +
+            '<th colspan="2">R.A. 9165</th>' +
+            '<th colspan="2">R.A. 6425</th>' +
+            '<th colspan="2">R.A. 9165</th>' +
           '</tr>' +
           '<tr>' +
-            '<th>Adult M</th><th>Adult F</th><th>CICL M</th><th>CICL F</th>' +
-            '<th>Adult M</th><th>Adult F</th><th>CICL M</th><th>CICL F</th>' +
-            '<th>Adult M</th><th>Adult F</th><th>CICL M</th><th>CICL F</th>' +
-            '<th>Adult M</th><th>Adult F</th><th>CICL M</th><th>CICL F</th>' +
+            '<th>Adult M</th><th>CICL M</th>' +
+            '<th>Adult M</th><th>CICL M</th>' +
+            '<th>Adult M</th><th>CICL M</th>' +
+            '<th>Adult M</th><th>CICL M</th>' +
           '</tr>' +
         '</thead><tbody>';
 
@@ -594,31 +546,23 @@
       html += '<tr>' +
         '<td>' + esc(r.classification) + '</td>' +
         '<td class="ta-right">' + num(r.r6425_adult_male) + '</td>' +
-        '<td class="ta-right">' + num(r.r6425_adult_female) + '</td>' +
         '<td class="ta-right">' + num(r.r6425_cicl_male) + '</td>' +
-        '<td class="ta-right">' + num(r.r6425_cicl_female) + '</td>' +
         '<td class="ta-right">' + num(r.r9165_adult_male) + '</td>' +
-        '<td class="ta-right">' + num(r.r9165_adult_female) + '</td>' +
         '<td class="ta-right">' + num(r.r9165_cicl_male) + '</td>' +
-        '<td class="ta-right">' + num(r.r9165_cicl_female) + '</td>' +
         '<td class="ta-right">' + num(r.at_r6425_adult_male) + '</td>' +
-        '<td class="ta-right">' + num(r.at_r6425_adult_female) + '</td>' +
         '<td class="ta-right">' + num(r.at_r6425_cicl_male) + '</td>' +
-        '<td class="ta-right">' + num(r.at_r6425_cicl_female) + '</td>' +
         '<td class="ta-right">' + num(r.at_r9165_adult_male) + '</td>' +
-        '<td class="ta-right">' + num(r.at_r9165_adult_female) + '</td>' +
         '<td class="ta-right">' + num(r.at_r9165_cicl_male) + '</td>' +
-        '<td class="ta-right">' + num(r.at_r9165_cicl_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.total) + '</strong></td>' +
         '</tr>';
     });
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>';
     [
-      'r6425_adult_male','r6425_adult_female','r6425_cicl_male','r6425_cicl_female',
-      'r9165_adult_male','r9165_adult_female','r9165_cicl_male','r9165_cicl_female',
-      'at_r6425_adult_male','at_r6425_adult_female','at_r6425_cicl_male','at_r6425_cicl_female',
-      'at_r9165_adult_male','at_r9165_adult_female','at_r9165_cicl_male','at_r9165_cicl_female',
+      'r6425_adult_male','r6425_cicl_male',
+      'r9165_adult_male','r9165_cicl_male',
+      'at_r6425_adult_male','at_r6425_cicl_male',
+      'at_r9165_adult_male','at_r9165_cicl_male',
       'total',
     ].forEach(function (k) {
       html += '<td class="ta-right">' + num(totals[k]) + '</td>';
@@ -643,25 +587,22 @@
       return;
     }
 
+    // REMOVED FEMALE COLUMNS
     html +=
       '<div class="table-wrap report-table__wrap">' +
       '<table class="report-table report-table--actual">' +
         '<thead>' +
           '<tr>' +
-            '<th rowspan="3">Municipality</th>' +
-            '<th colspan="2" rowspan="2">Detainee</th>' +
+            '<th rowspan="2">Municipality</th>' +
+            '<th rowspan="2">Detainee</th>' +
             '<th rowspan="2">Total<br>Detainees</th>' +
-            '<th colspan="8">Sentenced</th>' +
+            '<th colspan="4">Sentenced</th>' +
             '<th rowspan="2">Total<br>Sentenced</th>' +
             '<th rowspan="2">Grand<br>Total</th>' +
           '</tr>' +
           '<tr>' +
-            '<th colspan="2">Municipal</th><th colspan="2">City</th>' +
-            '<th colspan="2">Provincial</th><th colspan="2">Insular</th>' +
-          '</tr>' +
-          '<tr>' +
-            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
-            '<th>M</th><th>F</th><th>M</th><th>F</th>' +
+            '<th>Municipal</th><th>City</th>' +
+            '<th>Provincial</th><th>Insular</th>' +
           '</tr>' +
         '</thead><tbody>';
 
@@ -669,16 +610,11 @@
       html += '<tr>' +
         '<td>' + esc(r.municipality) + '</td>' +
         '<td class="ta-right">' + num(r.detainee_male) + '</td>' +
-        '<td class="ta-right">' + num(r.detainee_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.detainee_total) + '</strong></td>' +
         '<td class="ta-right">' + num(r.municipal_male) + '</td>' +
-        '<td class="ta-right">' + num(r.municipal_female) + '</td>' +
         '<td class="ta-right">' + num(r.city_male) + '</td>' +
-        '<td class="ta-right">' + num(r.city_female) + '</td>' +
         '<td class="ta-right">' + num(r.provincial_male) + '</td>' +
-        '<td class="ta-right">' + num(r.provincial_female) + '</td>' +
         '<td class="ta-right">' + num(r.insular_male) + '</td>' +
-        '<td class="ta-right">' + num(r.insular_female) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.sentenced_total) + '</strong></td>' +
         '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
         '</tr>';
@@ -686,16 +622,11 @@
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
       '<td class="ta-right">' + num(totals.detainee_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.detainee_female) + '</td>' +
       '<td class="ta-right">' + num(totals.detainee_total) + '</td>' +
       '<td class="ta-right">' + num(totals.municipal_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.municipal_female) + '</td>' +
       '<td class="ta-right">' + num(totals.city_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.city_female) + '</td>' +
       '<td class="ta-right">' + num(totals.provincial_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.provincial_female) + '</td>' +
       '<td class="ta-right">' + num(totals.insular_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.insular_female) + '</td>' +
       '<td class="ta-right">' + num(totals.sentenced_total) + '</td>' +
       '<td class="ta-right">' + num(totals.grand_total) + '</td>' +
       '</tr></tfoot></table></div>';
@@ -709,7 +640,6 @@
 
     output.innerHTML = html;
 
-    // ⬇️ NEW: make municipality rows clickable
     makeMunicipalityRowsClickable();
   }
 
@@ -738,37 +668,32 @@
       { key: 'other',      label: 'Other' },
     ];
 
+    // REMOVED FEMALE COLUMNS
     html += '<div class="table-wrap report-table__wrap">' +
       '<table class="report-table report-table--actual"><thead>' +
       '<tr><th rowspan="2">Municipality</th>';
     purposes.forEach(function (p) {
-      html += '<th colspan="2">' + esc(p.label) + '</th>';
+      html += '<th rowspan="2">' + esc(p.label) + '</th>';
     });
-    html += '<th rowspan="2" class="ta-right">Total</th></tr><tr>';
-    purposes.forEach(function () {
-      html += '<th>M</th><th>F</th>';
-    });
-    html += '</tr></thead><tbody>';
+    html += '<th rowspan="2" class="ta-right">Total</th></tr>';
+    html += '</thead><tbody>';
 
     rows.forEach(function (r) {
       html += '<tr><td>' + esc(r.municipality) + '</td>';
       purposes.forEach(function (p) {
-        html += '<td class="ta-right">' + num(r[p.key + '_male']) + '</td>' +
-                '<td class="ta-right">' + num(r[p.key + '_female']) + '</td>';
+        html += '<td class="ta-right">' + num(r[p.key + '_male']) + '</td>';
       });
       html += '<td class="ta-right"><strong>' + num(r.total) + '</strong></td></tr>';
     });
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>';
     purposes.forEach(function (p) {
-      html += '<td class="ta-right">' + num(totals[p.key + '_male']) + '</td>' +
-              '<td class="ta-right">' + num(totals[p.key + '_female']) + '</td>';
+      html += '<td class="ta-right">' + num(totals[p.key + '_male']) + '</td>';
     });
     html += '<td class="ta-right">' + num(totals.total) + '</td></tr></tfoot></table></div>';
 
     output.innerHTML = html;
 
-    // ⬇️ NEW: make municipality rows clickable
     makeMunicipalityRowsClickable();
   }
 
