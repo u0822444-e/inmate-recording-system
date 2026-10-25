@@ -15,7 +15,7 @@ $isReportsActive = ($currentSection ?? '') === 'reports';
         </div>
         <div class="section-header__tools">
             <input type="month" id="reportMonth" class="input-select"
-                   value="<?= date('Y-m') ?>" aria-label="Report month" hidden>
+                   value="<?= date('Y-m') ?>" aria-label="Report month">
             <button type="button" class="btn-secondary btn-sm" id="reportExportBtn">
                 <i class="bi bi-download"></i> Export CSV
             </button>
