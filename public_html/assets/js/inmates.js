@@ -9,15 +9,43 @@
   var errorBox  = document.getElementById('inmateFormError');
   var saveBtn   = document.getElementById('inmateSaveBtn');
 
+  /* ---------- Drug Case Type Toggle ---------- */
+  var drugCaseCheckbox = document.getElementById('inmateIsDrugCase');
+  var drugCaseTypeWrap = document.getElementById('inmateDrugCaseTypeWrap');
+  if (drugCaseCheckbox) {
+    drugCaseCheckbox.addEventListener('change', function() {
+      drugCaseTypeWrap.style.display = this.checked ? '' : 'none';
+      if (!this.checked) {
+        document.getElementById('inmateDrugCaseType').value = 'Not Applicable';
+      }
+    });
+  }
+
   /* ============================================================
      SEARCHABLE SELECT INSTANCES
      ============================================================ */
+
+  var cellSelect = new SearchableSelect({
+    container: document.getElementById('inmateCellWrap'),
+    placeholder: 'Select Jail Unit first',
+    onChange: function(value) {
+      // Optional: track cell selection if needed
+    }
+  });
+  cellSelect.setDisabled(true);
 
   var jailUnitSelect = new SearchableSelect({
     container: document.getElementById('inmateJailUnitWrap'),
     placeholder: 'Select jail unit',
     onChange: function (value) {
       document.getElementById('inmateJailUnitId').value = value;
+      
+      // Cascade: Load cells when jail unit changes
+      cellSelect.clear();
+      cellSelect.setItems([]);
+      cellSelect.setDisabled(true);
+      
+      if (value) loadCells(value);
     }
   });
 
@@ -183,7 +211,7 @@
   }
 
   /* ============================================================
-     API
+     API & LOADERS
      ============================================================ */
 
   function api(action, params) {
@@ -202,10 +230,6 @@
       });
   }
 
-  /* ============================================================
-     AUTO-FILL NUMBERS
-     ============================================================ */
-
   function loadNextPdl() {
     api('next-pdl').then(function (data) {
       document.getElementById('inmateNumber').value = data.pdl_no;
@@ -218,10 +242,6 @@
     }).catch(function (err) { console.error(err); });
   }
 
-  /* ============================================================
-     JAIL UNITS
-     ============================================================ */
-
   function loadJailUnits() {
     api('jail-units').then(function (data) {
       jailUnitSelect.setItems((data.jail_units || []).map(function (u) {
@@ -230,9 +250,14 @@
     }).catch(function (err) { console.error(err); });
   }
 
-  /* ============================================================
-     PROVINCES / MUNICIPALITIES / BARANGAYS
-     ============================================================ */
+  function loadCells(jailUnitId) {
+    api('cells', { jail_unit_id: jailUnitId }).then(function (data) {
+      cellSelect.setItems(data.cells.map(function (c) {
+        return { value: c.cell_name, label: c.cell_name };
+      }));
+      cellSelect.setDisabled(false);
+    }).catch(function (err) { console.error('Error loading cells:', err); });
+  }
 
   function loadProvinces() {
     api('provinces').then(function (data) {
@@ -264,10 +289,6 @@
     }).catch(function (err) { console.error(err); });
   }
 
-  /* ============================================================
-     OFFENSES
-     ============================================================ */
-
   function loadOffenses() {
     api('offenses').then(function (data) {
       offenseSelect.setItems(data.offenses.map(function (o) {
@@ -288,10 +309,6 @@
     }).catch(function (err) { console.error(err); });
   }
 
-  /* ============================================================
-     MODAL OPEN / CLOSE
-     ============================================================ */
-
   function openModal() {
     if (!modal) return;
 
@@ -302,6 +319,10 @@
     form.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
 
     jailUnitSelect.clear();
+    cellSelect.clear();
+    cellSelect.setItems([]);
+    cellSelect.setDisabled(true);
+    
     provinceSelect.clear();
     municipalitySelect.clear();
     municipalitySelect.setItems([]);
@@ -318,6 +339,9 @@
     document.getElementById('inmateClassification').value = '';
     document.getElementById('inmateCommittedAt').value = '';
     document.getElementById('inmateIsDrugCase').checked = false;
+    
+    document.getElementById('inmateDrugCaseType').value = 'Not Applicable';
+    drugCaseTypeWrap.style.display = 'none';
 
     sentenceMin.value = '';
     sentenceMax.value = '';
@@ -351,10 +375,6 @@
     });
   }
 
-  /* ============================================================
-     SUBMIT (ALL FIELDS REQUIRED)
-     ============================================================ */
-
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
 
@@ -364,6 +384,7 @@
     var payload = {
       inmate_number:      document.getElementById('inmateNumber').value,
       jail_unit_id:       document.getElementById('inmateJailUnitId').value,
+      cell:               cellSelect.getValue(),
       case_reference:     document.getElementById('inmateCaseRef').value,
       first_name:         document.getElementById('inmateFirstName').value.trim(),
       middle_name:        document.getElementById('inmateMiddleName').value.trim(),
@@ -379,6 +400,7 @@
       classification:     document.getElementById('inmateClassification').value,
       committed_at:       document.getElementById('inmateCommittedAt').value,
       is_drug_case:       document.getElementById('inmateIsDrugCase').checked ? 1 : 0,
+      drug_case_type:     document.getElementById('inmateDrugCaseType').value,
       sentence:           sentenceInput.value.trim(),
       sentence_years_min: sentenceMin.value,
       sentence_years_max: sentenceMax.value,
@@ -492,10 +514,6 @@
       saveBtn.textContent = 'Save Record';
     });
   });
-
-  /* ============================================================
-     INITIAL LOAD
-     ============================================================ */
 
   loadJailUnits();
   loadProvinces();

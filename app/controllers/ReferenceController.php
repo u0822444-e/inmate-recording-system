@@ -36,6 +36,7 @@ class ReferenceController
             case 'inmates-by-unit': $this->inmatesByUnit();  break;
             case 'next-pdl':        $this->nextPdl();        break;
             case 'next-case':       $this->nextCase();       break;
+            case 'cells':           $this->getCells();       break;
             default:                Response::json(false, 'Unsupported request.');
         }
     }
@@ -147,5 +148,23 @@ class ReferenceController
     private function nextCase(): void
     {
         Response::json(true, 'OK', ['case_no' => $this->model->nextCaseNumber()]);
+    }
+
+        private function getCells(): void
+    {
+        $unitId = (int) ($_GET['jail_unit_id'] ?? 0);
+        $sql = "SELECT id, cell_name FROM cells";
+        if ($unitId > 0) {
+            $sql .= " WHERE jail_unit_id = " . $unitId;
+        }
+        $sql .= " ORDER BY cell_name ASC";
+        
+        try {
+            $result = $this->db->query($sql);
+            $cells = $result->fetch_all(MYSQLI_ASSOC);
+            Response::json(true, 'OK', ['cells' => $cells]);
+        } catch (\Throwable $e) {
+            Response::json(false, 'Unable to load cells.');
+        }
     }
 }

@@ -37,8 +37,6 @@ $isAdmin = Auth::isAdmin();
                         placeholder="Search by inmate no., case ref., or name" aria-label="Search inmates">
                 </div>
 
-                <!-- Jail Unit filter removed -->
-
                 <select id="inmateStatusFilter" class="input-select" aria-label="Filter by custody status">
                     <option value="">All statuses</option>
                     <option value="In Custody">In Custody</option>
@@ -100,7 +98,7 @@ $isAdmin = Auth::isAdmin();
 </section>
 
 <!-- ============================================================
-     INMATE DETAIL MODAL — TABBED
+     INMATE DETAIL MODAL
      ============================================================ -->
 <div class="modal-backdrop is-hidden" id="inmateModal">
     <div class="dj-modal dj-modal--wide" role="dialog" aria-modal="true" aria-labelledby="inmateModalTitle">
@@ -114,7 +112,6 @@ $isAdmin = Auth::isAdmin();
             </button>
         </header>
 
-        <!-- Tab nav -->
         <nav class="detail-tabs" role="tablist">
             <button type="button" class="detail-tab is-active" data-tab="overview" role="tab">Overview</button>
             <button type="button" class="detail-tab" data-tab="profile" role="tab">Profile</button>
@@ -177,6 +174,10 @@ $isAdmin = Auth::isAdmin();
                             <span>Jail Unit</span>
                             <div id="editJailUnitWrap"></div>
                         </label>
+                        <label class="field">
+                            <span>Cell Assignment</span>
+                            <div id="editCellWrap"></div>
+                        </label>
                     </div>
                 </fieldset>
 
@@ -184,7 +185,6 @@ $isAdmin = Auth::isAdmin();
                 <fieldset class="user-form-section">
                     <legend>Personal Information</legend>
                     
-                    <!-- Avatar Upload -->
                     <div class="form-grid-row" style="align-items: center; margin-bottom: 1rem;">
                         <div class="field">
                             <span>Profile Picture</span>
@@ -296,6 +296,18 @@ $isAdmin = Auth::isAdmin();
                         </label>
                     </div>
 
+                    <div class="form-grid-row" id="editDrugCaseTypeWrap" style="display: none;">
+                        <label class="field" style="grid-column: span 3;">
+                            <span>Drug Case Type</span>
+                            <select id="editDrugCaseType">
+                                <option value="Not Applicable">Not Applicable</option>
+                                <option value="User">User</option>
+                                <option value="Pusher">Pusher</option>
+                                <option value="Drug Lord">Drug Lord</option>
+                            </select>
+                        </label>
+                    </div>
+
                     <div class="form-grid-row">
                         <label class="field" style="grid-column: span 3;">
                             <span class="field-label-row">
@@ -334,7 +346,6 @@ $isAdmin = Auth::isAdmin();
                     </div>
                 </fieldset>
 
-                <!-- Notes -->
                 <fieldset class="user-form-section">
                     <legend>Notes</legend>
                     <label class="field">

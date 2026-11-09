@@ -38,9 +38,13 @@ $isAdmin = Auth::isAdmin();
                         </label>
                     </div>
                     <div class="form-grid-row">
-                        <label class="field" style="grid-column: span 3;">
+                        <label class="field">
                             <span>Jail Unit</span>
                             <div id="inmateJailUnitWrap"></div>
+                        </label>
+                        <label class="field">
+                            <span>Cell Assignment</span>
+                            <div id="inmateCellWrap"></div>
                         </label>
                     </div>
                 </fieldset>
@@ -136,6 +140,19 @@ $isAdmin = Auth::isAdmin();
                         <label class="field field-checkbox">
                             <input type="checkbox" name="is_drug_case" id="inmateIsDrugCase" value="1">
                             <span>Drug-related case (R.A. 9165 / 6425)</span>
+                        </label>
+                    </div>
+
+                    <!-- NEW: Drug Case Type Dropdown (Hidden by default) -->
+                    <div class="form-grid-row" id="inmateDrugCaseTypeWrap" style="display: none;">
+                        <label class="field" style="grid-column: span 3;">
+                            <span>Drug Case Type</span>
+                            <select id="inmateDrugCaseType">
+                                <option value="Not Applicable">Not Applicable</option>
+                                <option value="User">User</option>
+                                <option value="Pusher">Pusher</option>
+                                <option value="Drug Lord">Drug Lord</option>
+                            </select>
                         </label>
                     </div>
 

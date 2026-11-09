@@ -11,9 +11,11 @@ use mysqli;
 class JailUnitController
 {
     private JailUnit $model;
+    private mysqli $db;
 
     public function __construct(mysqli $db)
     {
+        $this->db = $db;
         $this->model = new JailUnit($db);
     }
 
@@ -24,11 +26,99 @@ class JailUnitController
         }
 
         switch ($action) {
-            case 'list':   $this->list();   break;
-            case 'create': $this->create(); break;
-            case 'update': $this->update(); break;
-            case 'toggle': $this->toggle(); break;
-            default:       Response::json(false, 'Unsupported request.');
+            case 'list':
+                $this->list();
+                break;
+            case 'create':
+                $this->create();
+                break;
+            case 'update':
+                $this->update();
+                break;
+            case 'toggle':
+                $this->toggle();
+                break;
+            case 'cells':
+                $this->getCells();
+                break;
+            case 'create-cell':
+                $this->createCell();
+                break;
+            case 'delete-cell':
+                $this->deleteCell();
+                break;
+            default:
+                Response::json(false, 'Unsupported request.');
+        }
+    }
+
+    private function getCells(): void
+    {
+        $unitId = (int) ($_GET['jail_unit_id'] ?? 0);
+        if ($unitId <= 0) Response::json(false, 'Invalid jail unit.');
+
+        try {
+            $stmt = $this->db->prepare("SELECT id, cell_name FROM cells WHERE jail_unit_id = ? ORDER BY cell_name ASC");
+            $stmt->bind_param('i', $unitId);
+            $stmt->execute();
+            $cells = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            Response::json(true, 'OK', ['cells' => $cells]);
+        } catch (\Throwable $e) {
+            error_log('getCells: ' . $e->getMessage());
+            Response::json(false, 'Unable to load cells: ' . $e->getMessage());
+        }
+    }
+
+    private function createCell(): void
+    {
+        if (!Auth::isAdmin()) {
+            Response::json(false, 'Only administrators can manage cells.');
+        }
+
+        $p = Response::readJsonInput();
+        $unitId = (int) ($p['jail_unit_id'] ?? 0);
+        $cellName = trim((string) ($p['cell_name'] ?? ''));
+
+        if ($unitId <= 0 || $cellName === '') {
+            Response::json(false, 'Jail unit and cell name are required.');
+        }
+
+        try {
+            $stmt = $this->db->prepare("INSERT INTO cells (jail_unit_id, cell_name) VALUES (?, ?)");
+            $stmt->bind_param('is', $unitId, $cellName);
+            $stmt->execute();
+            $stmt->close();
+
+            Response::json(true, 'Cell added successfully.');
+        } catch (\Throwable $e) {
+            error_log('createCell: ' . $e->getMessage());
+            Response::json(false, 'Unable to add cell: ' . $e->getMessage());
+        }
+    }
+
+    private function deleteCell(): void
+    {
+        if (!Auth::isAdmin()) {
+            Response::json(false, 'Only administrators can manage cells.');
+        }
+
+        $p = Response::readJsonInput();
+        $id = (int) ($p['id'] ?? 0);
+
+        if ($id <= 0) Response::json(false, 'Invalid cell ID.');
+
+        try {
+            $stmt = $this->db->prepare("DELETE FROM cells WHERE id = ?");
+            $stmt->bind_param('i', $id);
+            $stmt->execute();
+            $stmt->close();
+
+            Response::json(true, 'Cell deleted successfully.');
+        } catch (\Throwable $e) {
+            error_log('deleteCell: ' . $e->getMessage());
+            Response::json(false, 'Unable to delete cell: ' . $e->getMessage());
         }
     }
 
@@ -48,12 +138,12 @@ class JailUnitController
 
         $p = Response::readJsonInput();
 
-        $name         = trim((string) ($p['name'] ?? ''));
-        $type         = trim((string) ($p['type'] ?? 'Municipal'));
-        $dormitory    = trim((string) ($p['dormitory'] ?? 'Combined'));
+        $name = trim((string) ($p['name'] ?? ''));
+        $type = trim((string) ($p['type'] ?? 'Municipal'));
+        $dormitory = trim((string) ($p['dormitory'] ?? 'Combined'));
         $municipality = trim((string) ($p['municipality'] ?? ''));
-        $province     = trim((string) ($p['province'] ?? 'Zamboanga Sibugay'));
-        $warden       = trim((string) ($p['warden'] ?? ''));
+        $province = trim((string) ($p['province'] ?? 'Zamboanga Sibugay'));
+        $warden = trim((string) ($p['warden'] ?? ''));
 
         if ($name === '') {
             Response::json(false, 'Jail unit name is required.');
@@ -69,13 +159,13 @@ class JailUnitController
         }
 
         $id = $this->model->create([
-            'name'         => $name,
-            'type'         => $type,
-            'dormitory'    => $dormitory,
+            'name' => $name,
+            'type' => $type,
+            'dormitory' => $dormitory,
             'municipality' => $municipality,
-            'province'     => $province,
-            'warden'       => $warden,
-            'is_active'    => 1,
+            'province' => $province,
+            'warden' => $warden,
+            'is_active' => 1,
         ]);
 
         Response::json(true, 'Jail unit created.', ['id' => $id]);
@@ -87,7 +177,7 @@ class JailUnitController
             Response::json(false, 'Only administrators can manage jail units.');
         }
 
-        $p  = Response::readJsonInput();
+        $p = Response::readJsonInput();
         $id = (int) ($p['id'] ?? 0);
 
         if ($id <= 0) {
@@ -105,7 +195,7 @@ class JailUnitController
             Response::json(false, 'A jail unit with this name already exists.');
         }
 
-        $type      = trim((string) ($p['type'] ?? 'Municipal'));
+        $type = trim((string) ($p['type'] ?? 'Municipal'));
         $dormitory = trim((string) ($p['dormitory'] ?? 'Combined'));
         if (!in_array($type, ['District', 'Municipal', 'City'], true)) {
             $type = 'Municipal';
@@ -115,13 +205,13 @@ class JailUnitController
         }
 
         $this->model->update($id, [
-            'name'         => $name,
-            'type'         => $type,
-            'dormitory'    => $dormitory,
+            'name' => $name,
+            'type' => $type,
+            'dormitory' => $dormitory,
             'municipality' => trim((string) ($p['municipality'] ?? '')),
-            'province'     => trim((string) ($p['province'] ?? 'Zamboanga Sibugay')),
-            'warden'       => trim((string) ($p['warden'] ?? '')),
-            'is_active'    => !empty($p['is_active']) ? 1 : 0,
+            'province' => trim((string) ($p['province'] ?? 'Zamboanga Sibugay')),
+            'warden' => trim((string) ($p['warden'] ?? '')),
+            'is_active' => !empty($p['is_active']) ? 1 : 0,
         ]);
 
         Response::json(true, 'Jail unit updated.');
@@ -133,7 +223,7 @@ class JailUnitController
             Response::json(false, 'Only administrators can manage jail units.');
         }
 
-        $p  = Response::readJsonInput();
+        $p = Response::readJsonInput();
         $id = (int) ($p['id'] ?? 0);
 
         if ($id <= 0) {

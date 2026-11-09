@@ -152,3 +152,51 @@ $isJailUnitsActive = ($currentSection ?? '') === 'jail-units';
         </form>
     </div>
 </div>
+
+<!-- ============================================================
+     MANAGE CELLS MODAL
+     ============================================================ -->
+<div class="modal-backdrop is-hidden" id="manageCellsModal">
+    <div class="dj-modal" role="dialog" aria-modal="true" aria-labelledby="manageCellsTitle">
+        <header class="dj-modal__header">
+            <div class="dj-modal__header-title">
+                <h2 id="manageCellsTitle">Manage Cells: <span id="cellsUnitName"></span></h2>
+            </div>
+            <button type="button" class="dj-modal__close" data-cells-close aria-label="Close">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </header>
+
+        <div class="dj-modal__body">
+            <input type="hidden" id="cellsJailUnitId">
+            
+            <div class="form-grid-row" style="margin-bottom: 1rem;">
+                <label class="field" style="grid-column: span 3;">
+                    <span>Add New Cell</span>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="newCellName" placeholder="e.g., Cell C-4" maxlength="50">
+                        <button type="button" class="btn-primary" id="addCellBtn">Add</button>
+                    </div>
+                </label>
+            </div>
+
+            <p class="modal__error" id="cellsError" hidden></p>
+
+            <table class="data-table data-table--compact">
+                <thead>
+                    <tr>
+                        <th>Cell Name</th>
+                        <th class="ta-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="cellsTableBody">
+                    <tr><td colspan="2" class="data-table__empty">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <footer class="dj-modal__footer">
+            <button type="button" class="btn-secondary" data-cells-close>Close</button>
+        </footer>
+    </div>
+</div>

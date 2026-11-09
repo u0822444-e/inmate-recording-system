@@ -48,6 +48,8 @@
   var editClassification = document.getElementById('editClassification');
   var editCommittedAt    = document.getElementById('editCommittedAt');
   var editIsDrugCase     = document.getElementById('editIsDrugCase');
+  var editDrugCaseType   = document.getElementById('editDrugCaseType');
+  var editDrugCaseTypeWrap = document.getElementById('editDrugCaseTypeWrap');
   var editNotes       = document.getElementById('editNotes');
   var editSentence    = document.getElementById('editSentence');
   var editSentenceMin = document.getElementById('editSentenceMin');
@@ -57,6 +59,16 @@
   var editSentenceReset  = document.getElementById('editSentenceResetBtn');
 
   var isAdmin = section.dataset.isAdmin === '1';
+
+  /* ---------- Drug Case Type Toggle ---------- */
+  if (editIsDrugCase) {
+    editIsDrugCase.addEventListener('change', function() {
+      editDrugCaseTypeWrap.style.display = this.checked ? '' : 'none';
+      if (!this.checked) {
+        editDrugCaseType.value = 'Not Applicable';
+      }
+    });
+  }
 
   /* ---------- Address filter searchable selects ---------- */
   var provinceSelectFilter = new SearchableSelect({
@@ -103,11 +115,21 @@
   barangaySelectFilter.setDisabled(true);
 
   /* ---------- Edit modal searchable selects ---------- */
+  var editCellSelect = new SearchableSelect({
+    container: document.getElementById('editCellWrap'),
+    placeholder: 'Select cell',
+  });
+
   var editJailUnitSelect = new SearchableSelect({
     container: document.getElementById('editJailUnitWrap'),
     placeholder: 'Select jail unit',
     onChange: function (value) {
       document.getElementById('editJailUnitId').value = value;
+      
+      editCellSelect.clear();
+      editCellSelect.setItems([]);
+      editCellSelect.setDisabled(true);
+      if (value) loadEditCells(value);
     }
   });
 
@@ -167,6 +189,7 @@
 
   editMunicipalitySelect.setDisabled(true);
   editBarangaySelect.setDisabled(true);
+  editCellSelect.setDisabled(true);
 
   /* ============================================================
      STATE
@@ -350,6 +373,15 @@
       document.getElementById('editOffenseId').value = o.id;
       applyEditAutoSentence(o);
     }).catch(function (err) { console.error(err); });
+  }
+
+  function loadEditCells(jailUnitId) {
+    return refApi('cells', { jail_unit_id: jailUnitId }).then(function (data) {
+      editCellSelect.setItems(data.cells.map(function (c) {
+        return { value: c.cell_name, label: c.cell_name };
+      }));
+      editCellSelect.setDisabled(false);
+    }).catch(function (err) { console.error('Error loading cells:', err); });
   }
 
   /* ============================================================
@@ -636,6 +668,7 @@
 
       var overviewRows =
         detailItem('Jail Unit', i.jail_unit_name) +
+        detailItem('Cell Assignment', i.cell) +
         detailItem('Inmate No.', i.inmate_number) +
         detailItem('Offense', (i.offense_name || '—') + (i.offense_code ? ' (' + i.offense_code + ')' : '')) +
         detailItem('Classification', i.classification) +
@@ -654,6 +687,7 @@
       var caseRows =
         detailItem('Offense', offenseText || '—', true) +
         detailItem('Drug-related', (parseInt(i.is_drug_case || 0, 10) === 1) ? 'Yes' : 'No') +
+        detailItem('Drug Case Type', i.drug_case_type) +
         detailItem('Committed', formatDate(i.committed_at)) +
         detailItem('Sentence', i.sentence, true) +
         detailItem('Years Range', years) +
@@ -741,6 +775,10 @@
     editForm.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
 
     editJailUnitSelect.clear();
+    editCellSelect.clear();
+    editCellSelect.setItems([]);
+    editCellSelect.setDisabled(true);
+    
     editProvinceSelect.clear();
     editMunicipalitySelect.clear();
     editMunicipalitySelect.setItems([]);
@@ -790,6 +828,10 @@
       editClassification.value = i.classification || '';
       editCommittedAt.value = toDateInput(i.committed_at);
       editIsDrugCase.checked = (parseInt(i.is_drug_case || 0, 10) === 1);
+      editDrugCaseType.value = i.drug_case_type || 'Not Applicable';
+      
+      editDrugCaseTypeWrap.style.display = editIsDrugCase.checked ? '' : 'none';
+
       editNotes.value = i.notes || '';
       editSentence.value = i.sentence || '';
       editSentenceMin.value = i.sentence_years_min !== null ? i.sentence_years_min : '';
@@ -820,9 +862,17 @@
         editJailUnitSelect.setItems((jData.jail_units || []).map(function (u) {
           return { value: u.id, label: u.name + ' (' + u.dormitory + ')' };
         }));
+        
         if (i.jail_unit_id) {
           editJailUnitSelect.setValue(i.jail_unit_id);
           document.getElementById('editJailUnitId').value = i.jail_unit_id;
+          
+          // Load cells and then set the value
+          loadEditCells(i.jail_unit_id).then(function() {
+            if (i.cell) {
+              editCellSelect.setValue(i.cell);
+            }
+          });
         }
       }).catch(function (err) { console.error(err); });
 
@@ -921,6 +971,7 @@
       var payload = {
         id:                 Number(editId.value),
         inmate_number:      editInmateNumber.value,
+        cell:               editCellSelect.getValue(),
         jail_unit_id:       document.getElementById('editJailUnitId').value,
         case_reference:     editCaseRef.value.trim(),
         first_name:         editFirstName.value.trim(),
@@ -937,6 +988,7 @@
         classification:     editClassification.value,
         committed_at:       editCommittedAt.value,
         is_drug_case:       editIsDrugCase.checked ? 1 : 0,
+        drug_case_type:     editDrugCaseType.value,
         sentence:           editSentence.value.trim(),
         sentence_years_min: editSentenceMin.value,
         sentence_years_max: editSentenceMax.value,

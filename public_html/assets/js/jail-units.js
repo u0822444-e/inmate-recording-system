@@ -11,7 +11,7 @@
   var statusFilter = document.getElementById('jailUnitStatusFilter');
   var createBtn    = document.getElementById('jailUnitCreateBtn');
 
-  /* ---------- Modal ---------- */
+  /* ---------- Main Modal ---------- */
   var modal     = document.getElementById('jailUnitModal');
   var form      = document.getElementById('jailUnitForm');
   var formError = document.getElementById('jailUnitFormError');
@@ -25,6 +25,15 @@
   var inputProvince     = document.getElementById('jailUnitProvince');
   var inputWarden       = document.getElementById('jailUnitWarden');
   var inputIsActive     = document.getElementById('jailUnitIsActive');
+
+  /* ---------- Manage Cells Modal ---------- */
+  var cellsModal      = document.getElementById('manageCellsModal');
+  var cellsUnitId     = document.getElementById('cellsJailUnitId');
+  var cellsUnitName   = document.getElementById('cellsUnitName');
+  var cellsTableBody  = document.getElementById('cellsTableBody');
+  var newCellInput    = document.getElementById('newCellName');
+  var addCellBtn      = document.getElementById('addCellBtn');
+  var cellsError      = document.getElementById('cellsError');
 
   /* ============================================================
      STATE
@@ -65,7 +74,7 @@
   }
 
   /* ============================================================
-     RENDER
+     RENDER TABLE
      ============================================================ */
 
   function renderTable() {
@@ -104,6 +113,9 @@
         '<td>' + esc(u.warden || '—') + '</td>' +
         '<td><span class="status-pill ' + statusClass + '">' + statusText + '</span></td>' +
         '<td class="ta-right"><div class="row-actions">' +
+          '<button type="button" class="icon-btn" data-action="manage-cells" data-id="' + u.id + '" data-name="' + esc(u.name) + '" title="Manage Cells">' +
+            '<i class="bi bi-door-closed"></i>' +
+          '</button>' +
           '<button type="button" class="icon-btn" data-action="edit" title="Edit">' +
             '<i class="bi bi-pencil"></i>' +
           '</button>' +
@@ -116,7 +128,7 @@
   }
 
   /* ============================================================
-     LOAD
+     LOAD JAIL UNITS
      ============================================================ */
 
   function load(force) {
@@ -134,7 +146,7 @@
   }
 
   /* ============================================================
-     MODAL
+     MAIN MODAL (JAIL UNITS)
      ============================================================ */
 
   function openModal(unit) {
@@ -180,10 +192,6 @@
       if (e.target.closest('[data-jail-unit-close]')) closeModal();
     });
   }
-
-  /* ============================================================
-     SUBMIT
-     ============================================================ */
 
   if (form) {
     form.addEventListener('submit', async function (e) {
@@ -241,6 +249,119 @@
   }
 
   /* ============================================================
+     MANAGE CELLS MODAL
+     ============================================================ */
+
+  function openCellsModal(unitId, unitName) {
+    if (!cellsModal) return;
+    
+    cellsUnitId.value = unitId;
+    cellsUnitName.textContent = unitName;
+    cellsError.hidden = true;
+    newCellInput.value = '';
+    
+    cellsModal.classList.remove('is-hidden');
+    document.body.classList.add('modal-open');
+    
+    loadCells(unitId);
+  }
+
+  function closeCellsModal() {
+    if (!cellsModal) return;
+    cellsModal.classList.add('is-hidden');
+    document.body.classList.remove('modal-open');
+  }
+
+  if (cellsModal) {
+    cellsModal.addEventListener('click', function(e) {
+      if (e.target.closest('[data-cells-close]')) closeCellsModal();
+    });
+  }
+
+  function loadCells(unitId) {
+    cellsTableBody.innerHTML = '<tr><td colspan="2" class="data-table__empty">Loading...</td></tr>';
+    
+    api('cells', { jail_unit_id: unitId }).then(function(data) {
+      if (!data.cells.length) {
+        cellsTableBody.innerHTML = '<tr><td colspan="2" class="data-table__empty">No cells found. Add one above.</td></tr>';
+        return;
+      }
+
+      cellsTableBody.innerHTML = data.cells.map(function(c) {
+        return '<tr data-id="' + c.id + '">' +
+          '<td>' + esc(c.cell_name) + '</td>' +
+          '<td class="ta-right">' +
+            '<button type="button" class="icon-btn icon-btn--danger" data-action="delete-cell" data-id="' + c.id + '" title="Delete cell">' +
+              '<i class="bi bi-trash"></i>' +
+            '</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }).catch(function(err) {
+      cellsTableBody.innerHTML = '<tr><td colspan="2" class="data-table__empty">' + esc(err.message) + '</td></tr>';
+    });
+  }
+
+  if (addCellBtn) {
+    addCellBtn.addEventListener('click', function() {
+      var cellName = newCellInput.value.trim();
+      var unitId = cellsUnitId.value;
+      
+      if (!cellName) {
+        cellsError.textContent = 'Cell name is required.';
+        cellsError.hidden = false;
+        return;
+      }
+
+      addCellBtn.disabled = true;
+      addCellBtn.textContent = 'Adding...';
+
+      api('create-cell', null, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jail_unit_id: Number(unitId), cell_name: cellName })
+      }).then(function() {
+        newCellInput.value = '';
+        cellsError.hidden = true;
+        loadCells(unitId);
+      }).catch(function(err) {
+        cellsError.textContent = err.message;
+        cellsError.hidden = false;
+      }).finally(function() {
+        addCellBtn.disabled = false;
+        addCellBtn.textContent = 'Add';
+      });
+    });
+  }
+
+  if (cellsTableBody) {
+    cellsTableBody.addEventListener('click', function(e) {
+      var btn = e.target.closest('button[data-action="delete-cell"]');
+      if (!btn) return;
+      
+      var cellId = btn.dataset.id;
+      var unitId = cellsUnitId.value;
+
+      if (!confirm('Are you sure you want to delete this cell? This cannot be undone.')) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+
+      api('delete-cell', null, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: Number(cellId) })
+      }).then(function() {
+        loadCells(unitId);
+      }).catch(function(err) {
+        alert(err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-trash"></i>';
+      });
+    });
+  }
+
+  /* ============================================================
      TABLE ACTIONS
      ============================================================ */
 
@@ -253,6 +374,11 @@
       if (!unit) return;
 
       var action = btn.dataset.action;
+
+      if (action === 'manage-cells') {
+        openCellsModal(id, unit.name);
+        return;
+      }
 
       if (action === 'edit') {
         openModal(unit);
@@ -286,7 +412,7 @@
   }
 
   /* ============================================================
-     FILTERS
+     FILTERS & INIT
      ============================================================ */
 
   var timer;
@@ -298,10 +424,6 @@
   }
   if (typeFilter)   typeFilter.addEventListener('change', renderTable);
   if (statusFilter) statusFilter.addEventListener('change', renderTable);
-
-  /* ============================================================
-     SECTION EVENTS
-     ============================================================ */
 
   document.addEventListener('section:changed', function (e) {
     if (e.detail && e.detail.section === 'jail-units') {
