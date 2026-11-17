@@ -54,8 +54,8 @@ class Report
                 SELECT
                     COALESCE(b.name, 'Unspecified') AS barangay,
 
-                    SUM(CASE WHEN i.classification = 'Detainee' AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS detainee_male,
-                    SUM(CASE WHEN i.classification = 'Detainee' AND i.sex = 'Female' THEN 1 ELSE 0 END) AS detainee_female,
+                    SUM(CASE WHEN i.classification IN ('Awaiting Trial', 'PDL') AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS detainee_male,
+                    SUM(CASE WHEN i.classification IN ('Awaiting Trial', 'PDL') AND i.sex = 'Female' THEN 1 ELSE 0 END) AS detainee_female,
 
                     SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Municipal'  AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS municipal_male,
                     SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Municipal'  AND i.sex = 'Female' THEN 1 ELSE 0 END) AS municipal_female,
@@ -66,7 +66,10 @@ class Report
                     SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Insular'    AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS insular_male,
                     SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Insular'    AND i.sex = 'Female' THEN 1 ELSE 0 END) AS insular_female,
 
-                    SUM(CASE WHEN i.classification = 'Detainee'  THEN 1 ELSE 0 END) AS detainee_total,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class IS NULL AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS unclassified_male,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class IS NULL AND i.sex = 'Female' THEN 1 ELSE 0 END) AS unclassified_female,
+
+                    SUM(CASE WHEN i.classification IN ('Awaiting Trial', 'PDL') THEN 1 ELSE 0 END) AS detainee_total,
                     SUM(CASE WHEN i.classification = 'Sentenced' THEN 1 ELSE 0 END) AS sentenced_total,
                     COUNT(*) AS grand_total
                 FROM inmates i
@@ -177,9 +180,9 @@ class Report
                 SELECT
                     COALESCE(classification, 'Unclassified') AS classification,
 
-                    -- Detainee (no prisoner class applies)
-                    SUM(CASE WHEN classification = 'Detainee' AND sex = 'Male'   THEN 1 ELSE 0 END) AS detainee_male,
-                    SUM(CASE WHEN classification = 'Detainee' AND sex = 'Female' THEN 1 ELSE 0 END) AS detainee_female,
+                    -- Detainee = Awaiting Trial OR PDL
+                    SUM(CASE WHEN classification IN ('Awaiting Trial', 'PDL') AND sex = 'Male'   THEN 1 ELSE 0 END) AS detainee_male,
+                    SUM(CASE WHEN classification IN ('Awaiting Trial', 'PDL') AND sex = 'Female' THEN 1 ELSE 0 END) AS detainee_female,
 
                     -- Sentenced by prisoner class
                     SUM(CASE WHEN classification = 'Sentenced' AND prisoner_class = 'Municipal'  AND sex = 'Male'   THEN 1 ELSE 0 END) AS municipal_male,
@@ -190,6 +193,10 @@ class Report
                     SUM(CASE WHEN classification = 'Sentenced' AND prisoner_class = 'Provincial' AND sex = 'Female' THEN 1 ELSE 0 END) AS provincial_female,
                     SUM(CASE WHEN classification = 'Sentenced' AND prisoner_class = 'Insular'    AND sex = 'Male'   THEN 1 ELSE 0 END) AS insular_male,
                     SUM(CASE WHEN classification = 'Sentenced' AND prisoner_class = 'Insular'    AND sex = 'Female' THEN 1 ELSE 0 END) AS insular_female,
+
+                    -- Sentenced with no prisoner_class assigned (visible instead of silently dropped)
+                    SUM(CASE WHEN classification = 'Sentenced' AND prisoner_class IS NULL AND sex = 'Male'   THEN 1 ELSE 0 END) AS unclassified_male,
+                    SUM(CASE WHEN classification = 'Sentenced' AND prisoner_class IS NULL AND sex = 'Female' THEN 1 ELSE 0 END) AS unclassified_female,
 
                     COUNT(*) AS grand_total
                 FROM inmates
@@ -509,8 +516,8 @@ class Report
                 SELECT
                     COALESCE(m.name, 'Unspecified') AS municipality,
 
-                    SUM(CASE WHEN i.classification = 'Detainee' AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS detainee_male,
-                    SUM(CASE WHEN i.classification = 'Detainee' AND i.sex = 'Female' THEN 1 ELSE 0 END) AS detainee_female,
+                    SUM(CASE WHEN i.classification IN ('Awaiting Trial', 'PDL') AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS detainee_male,
+                    SUM(CASE WHEN i.classification IN ('Awaiting Trial', 'PDL') AND i.sex = 'Female' THEN 1 ELSE 0 END) AS detainee_female,
 
                     SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Municipal'  AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS municipal_male,
                     SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Municipal'  AND i.sex = 'Female' THEN 1 ELSE 0 END) AS municipal_female,
@@ -521,7 +528,10 @@ class Report
                     SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Insular'    AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS insular_male,
                     SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class = 'Insular'    AND i.sex = 'Female' THEN 1 ELSE 0 END) AS insular_female,
 
-                    SUM(CASE WHEN i.classification = 'Detainee'  THEN 1 ELSE 0 END) AS detainee_total,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class IS NULL AND i.sex = 'Male'   THEN 1 ELSE 0 END) AS unclassified_male,
+                    SUM(CASE WHEN i.classification = 'Sentenced' AND i.prisoner_class IS NULL AND i.sex = 'Female' THEN 1 ELSE 0 END) AS unclassified_female,
+
+                    SUM(CASE WHEN i.classification IN ('Awaiting Trial', 'PDL') THEN 1 ELSE 0 END) AS detainee_total,
                     SUM(CASE WHEN i.classification = 'Sentenced' THEN 1 ELSE 0 END) AS sentenced_total,
                     COUNT(*) AS grand_total
                 FROM inmates i
