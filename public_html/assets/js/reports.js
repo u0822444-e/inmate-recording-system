@@ -595,13 +595,12 @@
           '<tr>' +
             '<th rowspan="2">Municipality</th>' +
             '<th rowspan="2">Detainee</th>' +
-            '<th rowspan="2">Total<br>Detainees</th>' +
-            '<th colspan="4">Sentenced</th>' +
+            '<th colspan="3">Sentenced</th>' +
             '<th rowspan="2">Total<br>Sentenced</th>' +
             '<th rowspan="2">Grand<br>Total</th>' +
           '</tr>' +
           '<tr>' +
-            '<th>Municipal</th><th>City</th>' +
+            '<th>Municipal</th>' +
             '<th>Provincial</th><th>Insular</th>' +
           '</tr>' +
         '</thead><tbody>';
@@ -610,9 +609,7 @@
       html += '<tr>' +
         '<td>' + esc(r.municipality) + '</td>' +
         '<td class="ta-right">' + num(r.detainee_male) + '</td>' +
-        '<td class="ta-right"><strong>' + num(r.detainee_total) + '</strong></td>' +
         '<td class="ta-right">' + num(r.municipal_male) + '</td>' +
-        '<td class="ta-right">' + num(r.city_male) + '</td>' +
         '<td class="ta-right">' + num(r.provincial_male) + '</td>' +
         '<td class="ta-right">' + num(r.insular_male) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.sentenced_total) + '</strong></td>' +
@@ -622,9 +619,7 @@
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
       '<td class="ta-right">' + num(totals.detainee_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.detainee_total) + '</td>' +
       '<td class="ta-right">' + num(totals.municipal_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.city_male) + '</td>' +
       '<td class="ta-right">' + num(totals.provincial_male) + '</td>' +
       '<td class="ta-right">' + num(totals.insular_male) + '</td>' +
       '<td class="ta-right">' + num(totals.sentenced_total) + '</td>' +
