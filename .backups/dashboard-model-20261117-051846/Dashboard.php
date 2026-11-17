@@ -1,0 +1,676 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Models;
+
+use mysqli;
+
+class Dashboard
+{
+    public function __construct(private mysqli $db) {}
+
+    /* ============================================================
+       ADMIN KPIs
+       ============================================================ */
+
+    public function totalPdl(): int
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT COUNT(*) AS c FROM inmates WHERE custody_status = 'In Custody'"
+            );
+            return (int) ($result->fetch_assoc()['c'] ?? 0);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    public function visitorsToday(): int
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) AS c FROM visitors WHERE DATE(time_in) = CURDATE()"
+            );
+            $stmt->execute();
+            $count = (int) ($stmt->get_result()->fetch_assoc()['c'] ?? 0);
+            $stmt->close();
+            return $count;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    public function openIncidents(): int
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT COUNT(*) AS c FROM incidents
+                 WHERE status IN ('Open', 'Pending', 'Under Review')"
+            );
+            return (int) ($result->fetch_assoc()['c'] ?? 0);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    public function activeUsers(): int
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT COUNT(*) AS c FROM users WHERE is_active = 1 AND archived_at IS NULL"
+            );
+            return (int) ($result->fetch_assoc()['c'] ?? 0);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    /* ============================================================
+       STAFF KPIs
+       ============================================================ */
+
+    public function myEntriesToday(int $userId): int
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) AS c FROM inmates
+                 WHERE created_by = ? AND DATE(created_at) = CURDATE()"
+            );
+            $stmt->bind_param('i', $userId);
+            $stmt->execute();
+            $count = (int) ($stmt->get_result()->fetch_assoc()['c'] ?? 0);
+            $stmt->close();
+            return $count;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    public function myPendingHeadcounts(int $userId): int
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) AS c FROM headcounts
+                 WHERE recorded_by = ? AND recorded_on = CURDATE()"
+            );
+            $stmt->bind_param('i', $userId);
+            $stmt->execute();
+            $count = (int) ($stmt->get_result()->fetch_assoc()['c'] ?? 0);
+            $stmt->close();
+            return $count;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    public function myIncidentsThisWeek(int $userId): int
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) AS c FROM incidents
+                 WHERE reported_by = ?
+                   AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+            );
+            $stmt->bind_param('i', $userId);
+            $stmt->execute();
+            $count = (int) ($stmt->get_result()->fetch_assoc()['c'] ?? 0);
+            $stmt->close();
+            return $count;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    /* ============================================================
+       ACTIVITY FEEDS
+       ============================================================ */
+
+    public function recentActivity(int $limit = 5): array
+    {
+        $items = [];
+
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT 'inmate' AS kind, id,
+                        CONCAT('Inmate record ',
+                            CASE WHEN created_at = updated_at THEN 'created' ELSE 'updated' END
+                        ) AS title,
+                        TRIM(CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,''))) AS subtitle,
+                        COALESCE(updated_at, created_at) AS happened_at
+                 FROM inmates
+                 ORDER BY COALESCE(updated_at, created_at) DESC
+                 LIMIT ?"
+            );
+            $stmt->bind_param('i', $limit);
+            $stmt->execute();
+            $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+            $stmt->close();
+        } catch (\Throwable $e) {}
+
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT 'user' AS kind, id,
+                        'User account created' AS title,
+                        COALESCE(full_name, username) AS subtitle,
+                        created_at AS happened_at
+                 FROM users ORDER BY created_at DESC LIMIT ?"
+            );
+            $stmt->bind_param('i', $limit);
+            $stmt->execute();
+            $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+            $stmt->close();
+        } catch (\Throwable $e) {}
+
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT 'visitor' AS kind, id,
+                        'Visitor logged' AS title,
+                        COALESCE(full_name,'') AS subtitle,
+                        created_at AS happened_at
+                 FROM visitors ORDER BY created_at DESC LIMIT ?"
+            );
+            $stmt->bind_param('i', $limit);
+            $stmt->execute();
+            $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+            $stmt->close();
+        } catch (\Throwable $e) {}
+
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT 'incident' AS kind, id,
+                        CONCAT('Incident: ', incident_type) AS title,
+                        COALESCE(spot,'') AS subtitle,
+                        created_at AS happened_at
+                 FROM incidents ORDER BY created_at DESC LIMIT ?"
+            );
+            $stmt->bind_param('i', $limit);
+            $stmt->execute();
+            $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+            $stmt->close();
+        } catch (\Throwable $e) {}
+
+        usort($items, fn($a, $b) => strcmp((string) $b['happened_at'], (string) $a['happened_at']));
+        $items = array_slice($items, 0, $limit);
+
+        foreach ($items as &$r) {
+            $r['id'] = (int) $r['id'];
+            $r['happened_at'] = (string) $r['happened_at'];
+        }
+        return $items;
+    }
+
+    public function myRecentActivity(int $userId, int $limit = 5): array
+    {
+        $items = [];
+
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT 'inmate' AS kind, id,
+                        CONCAT('Inmate record ',
+                            CASE WHEN created_at = updated_at THEN 'created' ELSE 'updated' END
+                        ) AS title,
+                        TRIM(CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,''))) AS subtitle,
+                        COALESCE(updated_at, created_at) AS happened_at
+                 FROM inmates WHERE created_by = ?
+                 ORDER BY COALESCE(updated_at, created_at) DESC LIMIT ?"
+            );
+            $stmt->bind_param('ii', $userId, $limit);
+            $stmt->execute();
+            $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+            $stmt->close();
+        } catch (\Throwable $e) {}
+
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT 'headcount' AS kind, id,
+                        'Headcount recorded' AS title,
+                        CONCAT(actual_count, ' PDL on ', recorded_on) AS subtitle,
+                        recorded_at AS happened_at
+                 FROM headcounts WHERE recorded_by = ?
+                 ORDER BY recorded_at DESC LIMIT ?"
+            );
+            $stmt->bind_param('ii', $userId, $limit);
+            $stmt->execute();
+            $items = array_merge($items, $stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+            $stmt->close();
+        } catch (\Throwable $e) {}
+
+        usort($items, fn($a, $b) => strcmp((string) $b['happened_at'], (string) $a['happened_at']));
+        $items = array_slice($items, 0, $limit);
+
+        foreach ($items as &$r) {
+            $r['id'] = (int) $r['id'];
+            $r['happened_at'] = (string) $r['happened_at'];
+        }
+        return $items;
+    }
+
+    public function upcomingEvents(int $limit = 3): array
+    {
+        $demo = [
+            ['date' => '2026-10-14', 'time' => '09:00', 'title' => 'Court Hearing',  'meta' => 'RTC Ipil · 3 PDL'],
+            ['date' => '2026-10-15', 'time' => '13:00', 'title' => 'Visitation Day',  'meta' => 'Block B · 13:00–17:00'],
+            ['date' => '2026-10-18', 'time' => '08:00', 'title' => 'Headcount Audit', 'meta' => 'Region IX · 08:00'],
+        ];
+        return array_slice($demo, 0, $limit);
+    }
+
+    /* ============================================================
+       ANALYTICS
+       ============================================================ */
+
+    private function fillDateGaps(array $rows, int $days, string $dateKey = 'date', string $countKey = 'count'): array
+    {
+        $byDate = [];
+        foreach ($rows as $r) {
+            $d = substr((string) $r[$dateKey], 0, 10);
+            $byDate[$d] = (int) $r[$countKey];
+        }
+
+        $out = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $d = date('Y-m-d', strtotime("-{$i} days"));
+            $out[] = [
+                $dateKey  => $d,
+                $countKey => $byDate[$d] ?? 0,
+            ];
+        }
+        return $out;
+    }
+
+    public function populationTrend(int $days = 30): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT recorded_on AS d, MAX(actual_count) AS c
+                 FROM headcounts
+                 WHERE recorded_on >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                 GROUP BY recorded_on
+                 ORDER BY d ASC"
+            );
+            $stmt->bind_param('i', $days);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            $mapped = array_map(fn($r) => [
+                'date'  => (string) $r['d'],
+                'count' => (int) $r['c'],
+            ], $rows);
+            return $this->fillDateGaps($mapped, $days);
+        } catch (\Throwable $e) {
+            return $this->fillDateGaps([], $days);
+        }
+    }
+
+    public function classificationBreakdown(): array
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT COALESCE(classification, 'Unclassified') AS label,
+                        COUNT(*) AS count
+                 FROM inmates
+                 WHERE custody_status = 'In Custody'
+                 GROUP BY COALESCE(classification, 'Unclassified')
+                 ORDER BY count DESC"
+            );
+            return array_map(fn($r) => [
+                'label' => (string) $r['label'],
+                'count' => (int) $r['count'],
+            ], $result->fetch_all(MYSQLI_ASSOC));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function topOffenses(int $limit = 8): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT o.name AS label, COUNT(i.id) AS count
+                 FROM inmates i
+                 INNER JOIN offenses o ON o.id = i.offense_id
+                 WHERE i.custody_status = 'In Custody'
+                 GROUP BY o.id, o.name
+                 ORDER BY count DESC
+                 LIMIT ?"
+            );
+            $stmt->bind_param('i', $limit);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+            return array_map(fn($r) => [
+                'label' => (string) $r['label'],
+                'count' => (int) $r['count'],
+            ], $rows);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function visitorsPerDay(int $days = 14): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT DATE(time_in) AS d, COUNT(*) AS c
+                 FROM visitors
+                 WHERE time_in >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                 GROUP BY DATE(time_in)
+                 ORDER BY d ASC"
+            );
+            $stmt->bind_param('i', $days);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            $mapped = array_map(fn($r) => [
+                'date'  => (string) $r['d'],
+                'count' => (int) $r['c'],
+            ], $rows);
+            return $this->fillDateGaps($mapped, $days);
+        } catch (\Throwable $e) {
+            return $this->fillDateGaps([], $days);
+        }
+    }
+
+    public function incidentsByType(): array
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT incident_type AS label, COUNT(*) AS count
+                 FROM incidents GROUP BY incident_type ORDER BY count DESC"
+            );
+            return array_map(fn($r) => [
+                'label' => (string) $r['label'],
+                'count' => (int) $r['count'],
+            ], $result->fetch_all(MYSQLI_ASSOC));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function incidentsBySeverity(): array
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT severity AS label,
+                        SUM(CASE WHEN status IN ('Open','Under Review') THEN 1 ELSE 0 END) AS open,
+                        SUM(CASE WHEN status IN ('Resolved','Closed')     THEN 1 ELSE 0 END) AS resolved
+                 FROM incidents
+                 GROUP BY severity
+                 ORDER BY FIELD(severity, 'Low', 'Medium', 'High', 'Critical')"
+            );
+            return array_map(fn($r) => [
+                'label'    => (string) $r['label'],
+                'open'     => (int) $r['open'],
+                'resolved' => (int) $r['resolved'],
+            ], $result->fetch_all(MYSQLI_ASSOC));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function ageDistribution(): array
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT
+                    CASE
+                        WHEN age < 18 THEN 'Under 18'
+                        WHEN age < 30 THEN '18–29'
+                        WHEN age < 40 THEN '30–39'
+                        WHEN age < 50 THEN '40–49'
+                        WHEN age < 60 THEN '50–59'
+                        ELSE '60+'
+                    END AS label,
+                    COUNT(*) AS count
+                 FROM (
+                     SELECT TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age
+                     FROM inmates
+                     WHERE custody_status = 'In Custody' AND date_of_birth IS NOT NULL
+                 ) AS a
+                 GROUP BY label
+                 ORDER BY FIELD(label, 'Under 18','18–29','30–39','40–49','50–59','60+')"
+            );
+            return array_map(fn($r) => [
+                'label' => (string) $r['label'],
+                'count' => (int) $r['count'],
+            ], $result->fetch_all(MYSQLI_ASSOC));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function inmatesByUnit(): array
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT j.name AS label,
+                        SUM(CASE WHEN i.sex = 'Male'   THEN 1 ELSE 0 END) AS male,
+                        SUM(CASE WHEN i.sex = 'Female' THEN 1 ELSE 0 END) AS female
+                 FROM jail_units j
+                 LEFT JOIN inmates i ON i.jail_unit_id = j.id AND i.custody_status = 'In Custody'
+                 WHERE j.is_active = 1
+                 GROUP BY j.id, j.name
+                 ORDER BY j.name"
+            );
+            return array_map(fn($r) => [
+                'label'  => (string) $r['label'],
+                'male'   => (int) $r['male'],
+                'female' => (int) $r['female'],
+            ], $result->fetch_all(MYSQLI_ASSOC));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function drugCaseBreakdown(): array
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT COALESCE(drug_case_law, 'Not Specified') AS label,
+                        COUNT(*) AS count
+                 FROM inmates
+                 WHERE is_drug_case = 1 AND custody_status = 'In Custody'
+                 GROUP BY COALESCE(drug_case_law, 'Not Specified')
+                 ORDER BY count DESC"
+            );
+            return array_map(fn($r) => [
+                'label' => (string) $r['label'],
+                'count' => (int) $r['count'],
+            ], $result->fetch_all(MYSQLI_ASSOC));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function headcountComplianceToday(): array
+    {
+        try {
+            $result = $this->db->query(
+                "SELECT j.name AS unit,
+                        SUM(CASE WHEN h.id IS NOT NULL THEN 1 ELSE 0 END) AS submitted,
+                        3 AS required
+                 FROM jail_units j
+                 LEFT JOIN headcounts h
+                     ON h.jail_unit_id = j.id AND h.recorded_on = CURDATE()
+                 WHERE j.is_active = 1
+                 GROUP BY j.id, j.name
+                 ORDER BY j.name"
+            );
+            return array_map(fn($r) => [
+                'unit'      => (string) $r['unit'],
+                'submitted' => (int) $r['submitted'],
+                'required'  => (int) $r['required'],
+            ], $result->fetch_all(MYSQLI_ASSOC));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function admissionsByMonth(int $months = 6): array
+    {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT DATE_FORMAT(admission_date, '%Y-%m') AS ym, COUNT(*) AS c
+                 FROM inmates
+                 WHERE admission_date >= DATE_SUB(CURDATE(), INTERVAL ? MONTH)
+                 GROUP BY ym
+                 ORDER BY ym ASC"
+            );
+            $stmt->bind_param('i', $months);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+            return array_map(fn($r) => [
+                'month' => (string) $r['ym'],
+                'count' => (int) $r['c'],
+            ], $rows);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /* ============================================================
+       STAFF ANALYTICS (Visitors)
+       ============================================================ */
+
+                public function myVisitorsLineTrend(int $userId, int $days = 7): array
+    {
+        try {
+            $days = (int) $days;
+
+            if ($days >= 365) {
+                $stmt = $this->db->prepare(
+                    "SELECT DATE_FORMAT(time_in, '%Y-%m-01') AS d, COUNT(*) AS c
+                     FROM visitors
+                     WHERE recorded_by = ? AND time_in >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                     GROUP BY DATE_FORMAT(time_in, '%Y-%m-01')
+                     ORDER BY d ASC"
+                );
+                $stmt->bind_param('i', $userId);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+
+                $mapped = [];
+                foreach ($rows as $r) {
+                    $mapped[(string)$r['d']] = (int)$r['c'];
+                }
+
+                $out = [];
+                for ($i = 11; $i >= 0; $i--) {
+                    $date = date('Y-m-01', strtotime("-{$i} months"));
+                    $out[] = [
+                        'date'  => $date,
+                        'count' => $mapped[$date] ?? 0
+                    ];
+                }
+                return $out;
+            }
+
+            $stmt = $this->db->prepare(
+                "SELECT DATE(time_in) AS d, COUNT(*) AS c
+                 FROM visitors
+                 WHERE recorded_by = ? AND time_in >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+                 GROUP BY DATE(time_in)
+                 ORDER BY d ASC"
+            );
+            $stmt->bind_param('ii', $userId, $days);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+            
+            $mapped = array_map(fn($r) => [
+                'date'  => (string) $r['d'],
+                'count' => (int) $r['c'],
+            ], $rows);
+            return $this->fillDateGaps($mapped, $days);
+        } catch (\Throwable $e) {
+            error_log('myVisitorsLineTrend fail: ' . $e->getMessage());
+            return [];
+        }
+    }
+    public function myVisitorsBarChart(int $userId, int $days = 7, string $mode = 'daily'): array
+    {
+        try {
+            $labels = [];
+            $counts = [];
+
+            $startDate = date('Y-m-d', strtotime("-{$days} days"));
+
+            if ($mode === 'hourly') {
+                $stmt = $this->db->prepare(
+                    "SELECT HOUR(time_in) AS h, COUNT(*) AS c
+                     FROM visitors
+                     WHERE recorded_by = ? AND time_in >= ?
+                     GROUP BY HOUR(time_in)"
+                );
+                $stmt->bind_param('is', $userId, $startDate);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+
+                $byHour = [];
+                foreach ($rows as $r) { $byHour[(int)$r['h']] = (int)$r['c']; }
+                
+                for ($i = 8; $i <= 17; $i++) {
+                    $labels[] = date('g A', mktime($i, 0, 0));
+                    $counts[] = $byHour[$i] ?? 0;
+                }
+
+            } elseif ($mode === 'monthly') {
+                $stmt = $this->db->prepare(
+                    "SELECT DATE_FORMAT(time_in, '%Y-%m') AS m, COUNT(*) AS c
+                     FROM visitors
+                     WHERE recorded_by = ? AND time_in >= ?
+                     GROUP BY m ORDER BY m ASC"
+                );
+                $stmt->bind_param('is', $userId, $startDate);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+
+                $byMonth = [];
+                foreach ($rows as $r) { $byMonth[(string)$r['m']] = (int)$r['c']; }
+
+                // Fill in months
+                for ($i = 11; $i >= 0; $i--) {
+                    $monthStr = date('Y-m', strtotime("-{$i} months"));
+                    $labels[] = date('M Y', strtotime($monthStr . '-01'));
+                    $counts[] = $byMonth[$monthStr] ?? 0;
+                }
+
+            } else { // 'daily'
+                $stmt = $this->db->prepare(
+                    "SELECT DATE(time_in) AS d, COUNT(*) AS c
+                     FROM visitors
+                     WHERE recorded_by = ? AND time_in >= ?
+                     GROUP BY DATE(time_in)"
+                );
+                $stmt->bind_param('is', $userId, $startDate);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+
+                $byDate = [];
+                foreach ($rows as $r) { $byDate[(string)$r['d']] = (int)$r['c']; }
+
+                for ($i = $days - 1; $i >= 0; $i--) {
+                    $date = date('Y-m-d', strtotime("-{$i} days"));
+                    $labels[] = $days > 7 ? date('M j', strtotime($date)) : date('D', strtotime($date));
+                    $counts[] = $byDate[$date] ?? 0;
+                }
+            }
+
+            $out = [];
+            for ($i = 0; $i < count($labels); $i++) {
+                $out[] = ['label' => $labels[$i], 'count' => $counts[$i]];
+            }
+            return $out;
+
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+}

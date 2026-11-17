@@ -519,3 +519,161 @@
   loadProvinces();
   loadOffenses();
 })();
+/* drill-down: drill-inmates */
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "inmates") return;
+  var f = e.detail.filter || {};
+  var search = document.getElementById("inmateSearchInput");
+  var keys = ["classification","offense","unit","age_group","drug","admitted_month"];
+  for (var i = 0; i < keys.length; i++) {
+    if (f[keys[i]] && search) {
+      search.value = f[keys[i]];
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      break;
+    }
+  }
+  if (typeof window.loadInmates === "function") window.loadInmates();
+});
+
+/* ============================================================
+   drill-down filter API — real DOM IDs from inmates-section.php
+   ============================================================ */
+window.applyInmateFilter = function (f) {
+  f = f || {};
+  console.log("[drill] applyInmateFilter", f);
+
+  var search    = document.getElementById("inmateSearch");
+  var statusSel = document.getElementById("inmateStatusFilter");
+  var offenseSel= document.getElementById("inmateOffenseFilter");
+
+  var applied = false;
+
+  // classification / custody status → #inmateStatusFilter
+  var classSel = document.getElementById("inmateClassificationFilter");
+  var statusVal = f.classification || f.custody;
+  if (f.classification && classSel) {
+    classSel.value = f.classification;
+    classSel.dispatchEvent(new Event("change", { bubbles: true }));
+    classSel = null;
+    // fall through to trigger the loader
+    if (typeof window.loadInmates === "function") { try { window.loadInmates(); return; } catch (e) {} }
+  }
+  if (statusVal && statusSel) {
+    var found = false;
+    Array.from(statusSel.options).forEach(function (o) {
+      if (o.value.toLowerCase() === String(statusVal).toLowerCase() ||
+          o.textContent.trim().toLowerCase() === String(statusVal).toLowerCase()) {
+        statusSel.value = o.value; found = true;
+      }
+    });
+    if (!found) {
+      // try looser contains match (handles "Sentenced" vs "sentenced_pdl")
+      Array.from(statusSel.options).forEach(function (o) {
+        if (o.value.toLowerCase().includes(String(statusVal).toLowerCase()) ||
+            o.textContent.toLowerCase().includes(String(statusVal).toLowerCase())) {
+          statusSel.value = o.value; found = true;
+        }
+      });
+    }
+    if (!found && search) { search.value = statusVal; applied = true; }
+    statusSel.dispatchEvent(new Event("change", { bubbles: true }));
+    applied = true;
+  }
+
+  // offense (top_offenses chart)
+  if (f.offense && offenseSel) {
+    var found = false;
+    Array.from(offenseSel.options).forEach(function (o) {
+      if (o.value.toLowerCase() === String(f.offense).toLowerCase() ||
+          o.textContent.trim().toLowerCase() === String(f.offense).toLowerCase()) {
+        offenseSel.value = o.value; found = true;
+      }
+    });
+    if (!found && search) { search.value = f.offense; applied = true; }
+    offenseSel.dispatchEvent(new Event("change", { bubbles: true }));
+    applied = true;
+  }
+
+  // drug cases / age group → free text (no dedicated select)
+  var textTerm = f.drug || f.age_group || "";
+  if (textTerm && search) {
+    search.value = textTerm;
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    applied = true;
+  }
+
+  // unit → also lives in a select inside the filter toolbar; try by name
+  if (f.unit) {
+    var u = document.querySelector('select[name="unit"]')
+         || document.querySelector('select[name="jail_unit"]');
+    if (u) { u.value = f.unit; u.dispatchEvent(new Event("change", { bubbles: true })); applied = true; }
+  }
+
+  // admitted month
+  if (f.admitted_month) {
+    var m = document.querySelector('input[name="admitted_month"]')
+         || document.querySelector('input[type="month"]');
+    if (m) { m.value = f.admitted_month; m.dispatchEvent(new Event("change", { bubbles: true })); applied = true; }
+  }
+
+  if (!applied) console.warn("[drill] no matching input for filter", f);
+
+  // force table reload — try the global loader first, else click a "filter" btn
+  if (typeof window.loadInmates === "function") {
+    try { window.loadInmates(); return; } catch (e) { console.warn(e); }
+  }
+  var btn = document.querySelector('[data-action="filter-inmates"]')
+         || document.getElementById("inmateFilterBtn")
+         || document.querySelector('#inmatesSection .filter-btn');
+  if (btn) btn.click();
+};
+
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "inmates") return;
+  if (!e.detail.filter) return;
+  window.applyInmateFilter(e.detail.filter);
+});
+
+/* ---------- drill-down: filter-forwarding for loadInmates ---------- */
+(function () {
+  function attach() {
+    var origLoad = window.loadInmates;
+    if (typeof origLoad !== "function" || origLoad.__drillPatched) return;
+    origLoad.__drillPatched = true;
+
+    window.loadInmates = function () {
+      var classSel = document.getElementById("inmateClassificationFilter");
+      var statusSel = document.getElementById("inmateStatusFilter");
+      var offenseSel = document.getElementById("inmateOffenseFilter");
+      var search    = document.getElementById("inmateSearch");
+
+      var origFetch = window.fetch;
+      window.fetch = function (url, opts) {
+        if (typeof url === "string" && /route=inmates/.test(url) && /action=list/.test(url)) {
+          var extra = [];
+          if (classSel && classSel.value)   extra.push("classification=" + encodeURIComponent(classSel.value));
+          if (statusSel && statusSel.value) extra.push("status="         + encodeURIComponent(statusSel.value));
+          if (offenseSel && offenseSel.value) extra.push("offense_id="   + encodeURIComponent(offenseSel.value));
+          if (search && search.value)       extra.push("q="              + encodeURIComponent(search.value));
+          if (extra.length) {
+            url += (url.indexOf("?") === -1 ? "?" : "&") + extra.join("&");
+          }
+        }
+        return origFetch.apply(this, arguments.length === 1 ? [url] : [url, opts]);
+      };
+      try { return origLoad.apply(this, arguments); }
+      finally { window.fetch = origFetch; }
+    };
+    console.log("[drill] loadInmates patched");
+  }
+
+  // Patch now if already defined, otherwise wait for it
+  if (typeof window.loadInmates === "function") attach();
+  else {
+    var tries = 0;
+    var iv = setInterval(function () {
+      if (typeof window.loadInmates === "function") { attach(); clearInterval(iv); }
+      else if (++tries > 50) { clearInterval(iv); console.warn("[drill] loadInmates never appeared"); }
+    }, 100);
+  }
+})();

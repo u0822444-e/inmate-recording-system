@@ -669,3 +669,78 @@
     if (btn) btn.click();
   });
 })();
+/* drill-down: drill-incidents */
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "incidents") return;
+  var f = e.detail.filter || {};
+  if (f.type) {
+    var t = document.querySelector("[data-incident-type-filter]");
+    if (t) { t.value = f.type; t.dispatchEvent(new Event("change", { bubbles: true })); }
+  }
+  if (f.severity) {
+    var s = document.querySelector("[data-incident-severity-filter]");
+    if (s) { s.value = f.severity; s.dispatchEvent(new Event("change", { bubbles: true })); }
+  }
+  if (typeof window.loadIncidents === "function") window.loadIncidents();
+});
+
+/* ============================================================
+   drill-down filter API — real DOM IDs from incidents-section.php
+   ============================================================ */
+window.applyIncidentFilter = function (f) {
+  f = f || {};
+  console.log("[drill] applyIncidentFilter", f);
+
+  var typeSel = document.getElementById("incidentTypeFilter");
+  var sevSel  = document.getElementById("incidentSeverityFilter");
+  var statSel = document.getElementById("incidentStatusFilter");
+  var dateEl  = document.getElementById("incidentDateFilter");
+  var search  = document.getElementById("incidentSearch");
+
+  function setSelect(sel, want) {
+    if (!sel || !want) return false;
+    var W = String(want).toLowerCase();
+    var hit = false;
+    Array.from(sel.options).forEach(function (o) {
+      var v = o.value.toLowerCase(), t = o.textContent.trim().toLowerCase();
+      if (v === W || t === W) { sel.value = o.value; hit = true; }
+    });
+    if (!hit) {
+      Array.from(sel.options).forEach(function (o) {
+        if (o.value.toLowerCase().includes(W) || o.textContent.toLowerCase().includes(W)) {
+          sel.value = o.value; hit = true;
+        }
+      });
+    }
+    if (hit) sel.dispatchEvent(new Event("change", { bubbles: true }));
+    return hit;
+  }
+
+  if (f.type)     setSelect(typeSel, f.type);
+  if (f.severity) setSelect(sevSel,  f.severity);
+  if (f.status)   setSelect(statSel, f.status);
+
+  if (f.date && dateEl) {
+    dateEl.value = String(f.date).slice(0, 10);
+    dateEl.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  if (!f.type && !f.severity && !f.status && !f.date && search && f.search) {
+    search.value = f.search;
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  if (typeof window.loadIncidents === "function") {
+    try { window.loadIncidents(); return; } catch (e) { console.warn(e); }
+  }
+  var btn = document.querySelector('[data-action="filter-incidents"]')
+         || document.getElementById("incidentFilterBtn")
+         || document.querySelector('#incidentsSection .filter-btn');
+  if (btn) btn.click();
+};
+
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "incidents") return;
+  if (!e.detail.filter) return;
+  window.applyIncidentFilter(e.detail.filter);
+});

@@ -19,6 +19,53 @@ class InmateController
         $this->logger = new ActivityLog($db);
     }
 
+    /** Drill-down filter: reads ?classification=&offense=&unit=&age_group=&drug= */
+    private function applyInmateListFilters(string $baseSql): array
+    {
+        $where = [];
+        $params = [];
+        $types  = "";
+
+        $map = [
+            "classification" => "i.classification = ?",
+            "offense"        => "o.name = ?",
+            "unit"           => "ju.name = ?",
+            "drug"           => "i.drug_case_type = ?",
+        ];
+        foreach ($map as $key => $clause) {
+            $v = trim((string) ($_GET[$key] ?? ""));
+            if ($v !== "") { $where[] = $clause; $params[] = $v; $types .= "s"; }
+        }
+
+        $age = trim((string) ($_GET["age_group"] ?? ""));
+        if ($age !== "") {
+            $bands = [
+                "Under 18" => "TIMESTAMPDIFF(YEAR,i.date_of_birth,CURDATE()) < 18",
+                "18-24"    => "TIMESTAMPDIFF(YEAR,i.date_of_birth,CURDATE()) BETWEEN 18 AND 24",
+                "25-34"    => "TIMESTAMPDIFF(YEAR,i.date_of_birth,CURDATE()) BETWEEN 25 AND 34",
+                "35-44"    => "TIMESTAMPDIFF(YEAR,i.date_of_birth,CURDATE()) BETWEEN 35 AND 44",
+                "45-54"    => "TIMESTAMPDIFF(YEAR,i.date_of_birth,CURDATE()) BETWEEN 45 AND 54",
+                "55-64"    => "TIMESTAMPDIFF(YEAR,i.date_of_birth,CURDATE()) BETWEEN 55 AND 64",
+                "65+"      => "TIMESTAMPDIFF(YEAR,i.date_of_birth,CURDATE()) >= 65",
+            ];
+            if (isset($bands[$age])) { $where[] = $bands[$age]; }
+        }
+
+        $am = trim((string) ($_GET["admitted_month"] ?? ""));
+        if ($am !== "" && preg_match('/^\d{4}-\d{2}$/', $am)) {
+            $where[] = "DATE_FORMAT(i.admission_date, '%Y-%m') = ?";
+            $params[] = $am; $types .= "s";
+        }
+
+        $sql = $baseSql;
+        if ($where) {
+            $sql .= (stripos($sql, "WHERE") !== false ? " AND " : " WHERE ")
+                  . implode(" AND ", $where);
+        }
+        return [$sql, $types, $params];
+    }
+
+
     public function handle(string $action): void
     {
         if (!Auth::isLoggedIn()) {
@@ -158,6 +205,12 @@ class InmateController
         $province       = trim((string) ($_GET['province'] ?? ''));
         $municipalityId = (int) ($_GET['municipality_id'] ?? 0);
         $barangayId     = (int) ($_GET['barangay_id'] ?? 0);
+        $classification = trim((string) ($_GET['classification'] ?? ''));
+        $offenseName    = trim((string) ($_GET['offense'] ?? ''));
+        $unitName       = trim((string) ($_GET['unit'] ?? ''));
+        $drugType       = trim((string) ($_GET['drug'] ?? ''));
+        $ageGroup       = trim((string) ($_GET['age_group'] ?? ''));
+        $admittedMonth  = trim((string) ($_GET['admitted_month'] ?? ''));
         $offenseId      = (int) ($_GET['offense_id'] ?? 0);
         $jailUnitId     = (int) ($_GET['jail_unit_id'] ?? 0);
         $limit          = max(1, min(100, (int) ($_GET['limit'] ?? 20)));
@@ -200,6 +253,51 @@ class InmateController
         if ($status !== '') {
             $sql .= ' AND i.custody_status = ?';
             $params[] = $status;
+            $types .= 's';
+        }
+
+        if ($classification !== '') {
+            $sql .= ' AND i.classification = ?';
+            $params[] = $classification;
+            $types .= 's';
+        }
+
+        if ($offenseName !== '') {
+            $sql .= ' AND o.name = ?';
+            $params[] = $offenseName;
+            $types .= 's';
+        }
+
+        if ($unitName !== '') {
+            $sql .= ' AND j.name = ?';
+            $params[] = $unitName;
+            $types .= 's';
+        }
+
+        if ($drugType !== '') {
+            $sql .= ' AND i.drug_case_type = ?';
+            $params[] = $drugType;
+            $types .= 's';
+        }
+
+        if ($ageGroup !== '') {
+            $bands = [
+                'Under 18' => 'TIMESTAMPDIFF(YEAR, i.date_of_birth, CURDATE()) < 18',
+                '18-24'    => 'TIMESTAMPDIFF(YEAR, i.date_of_birth, CURDATE()) BETWEEN 18 AND 24',
+                '25-34'    => 'TIMESTAMPDIFF(YEAR, i.date_of_birth, CURDATE()) BETWEEN 25 AND 34',
+                '35-44'    => 'TIMESTAMPDIFF(YEAR, i.date_of_birth, CURDATE()) BETWEEN 35 AND 44',
+                '45-54'    => 'TIMESTAMPDIFF(YEAR, i.date_of_birth, CURDATE()) BETWEEN 45 AND 54',
+                '55-64'    => 'TIMESTAMPDIFF(YEAR, i.date_of_birth, CURDATE()) BETWEEN 55 AND 64',
+                '65+'      => 'TIMESTAMPDIFF(YEAR, i.date_of_birth, CURDATE()) >= 65',
+            ];
+            if (isset($bands[$ageGroup])) {
+                $sql .= ' AND ' . $bands[$ageGroup];
+            }
+        }
+
+        if ($admittedMonth !== '' && preg_match('/^\d{4}-\d{2}$/', $admittedMonth)) {
+            $sql .= " AND DATE_FORMAT(i.admission_date, '%Y-%m') = ?";
+            $params[] = $admittedMonth;
             $types .= 's';
         }
 

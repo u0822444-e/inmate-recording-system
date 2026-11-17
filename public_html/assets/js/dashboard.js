@@ -579,7 +579,61 @@
     }
   }
 
-  var THEME = {
+    /* ============================================================
+     CHART DRILL-DOWN — every slice/bar is clickable
+     ============================================================ */
+
+  var DRILL_MAP = {
+    classification:        { section: "inmates",   key: "classification" },
+    custody:               { section: "inmates",   key: "custody" },
+    top_offenses:          { section: "inmates",   key: "offense" },
+    inmates_by_unit:       { section: "inmates",   key: "unit" },
+    age_distribution:      { section: "inmates",   key: "age_group" },
+    drug_cases:            { section: "inmates",   key: "drug" },
+    incidents_by_type:     { section: "incidents", key: "type" },
+    incidents_by_severity: { section: "incidents", key: "severity" },
+    visitors_per_day:      { section: "visitors",  key: "date" },
+    admissions_by_month:   { section: "inmates",   key: "admitted_month" },
+    population_trend:      { section: "headcount", key: "date" }
+  };
+
+  function drillDown(sectionName, params) {
+    showSection(sectionName);
+    var qs = Object.keys(params)
+      .map(function (k) { return k + "=" + encodeURIComponent(params[k]); })
+      .join("&");
+    document.dispatchEvent(new CustomEvent("section:changed", {
+      detail: { section: sectionName, filter: params, query: qs }
+    }));
+    // URL update disabled — was zeroing the query string
+    // var url = new URL(window.location.href);
+    // url.searchParams.set("section", sectionName);
+    // url.searchParams.set("filter", qs);
+    // history.replaceState(null, "", url.toString());
+  }
+
+  function attachDrillDown(chart, chartKey) {
+    if (!chart) return;
+    var map = DRILL_MAP[chartKey];
+    if (!map) return;
+    chart.options.onClick = function (evt, elements) {
+      if (!elements || !elements.length) return;
+      var el0 = elements[0];
+      var label = chart.data.labels[el0.index];
+      var value = map.key === "severity"
+        ? chart.data.datasets[el0.datasetIndex].label
+        : label;
+      console.log("[drill] " + chartKey + " -> " + map.section, map.key, value);
+      var o = {}; o[map.key] = value;
+      drillDown(map.section, o);
+    };
+    chart.options.onHover = function (evt, elements) {
+      if (evt && evt.native && evt.native.target)
+        evt.native.target.style.cursor = elements.length ? "pointer" : "default";
+    };
+  }
+
+var THEME = {
     primary: "#2563eb",
     success: "#16a34a",
     warning: "#f59e0b",
@@ -715,6 +769,7 @@
           }
         },
       });
+    attachDrillDown(charts["classification"], "classification");
     }
 
     if (a.top_offenses && a.top_offenses.length) {
@@ -745,6 +800,7 @@
           },
         },
       });
+    attachDrillDown(charts["offenses"], "top_offenses");
     }
 
     if (a.visitors_per_day && a.visitors_per_day.length) {
@@ -774,6 +830,7 @@
           },
         },
       });
+    attachDrillDown(charts["visitors"], "visitors_per_day");
     }
 
     if (a.incidents_by_type && a.incidents_by_type.length) {
@@ -799,6 +856,7 @@
           }
         },
       });
+    attachDrillDown(charts["incType"], "incidents_by_type");
     }
 
     if (a.incidents_by_severity && a.incidents_by_severity.length) {
@@ -842,6 +900,7 @@
           },
         },
       });
+    attachDrillDown(charts["incSeverity"], "incidents_by_severity");
     }
 
     if (a.age_distribution && a.age_distribution.length) {
@@ -869,6 +928,7 @@
           },
         },
       });
+    attachDrillDown(charts["age"], "age_distribution");
     }
 
     if (a.drug_cases && a.drug_cases.length) {
@@ -894,6 +954,7 @@
           }
         },
       });
+    attachDrillDown(charts["drug"], "drug_cases");
     }
 
     if (a.admissions_by_month && a.admissions_by_month.length) {
@@ -925,6 +986,7 @@
           },
         },
       });
+    attachDrillDown(charts["admissions"], "admissions_by_month");
     }
 
     renderCompliance(a.headcount_compliance || []);
@@ -1119,4 +1181,19 @@
   }
 
   console.log("[dashboard] initialized");
+})();
+/* Restore drill-down filter from ?filter=... on load */
+(function restoreFilterFromUrl() {
+  var url = new URL(window.location.href);
+  var filt = url.searchParams.get("filter");
+  if (!filt) return;
+  var params = {};
+  filt.split("&").forEach(function (p) {
+    var kv = p.split("=");
+    if (kv[0]) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || "");
+  });
+  var section = url.searchParams.get("section") || "overview";
+  document.dispatchEvent(new CustomEvent("section:changed", {
+    detail: { section: section, filter: params, query: filt }
+  }));
 })();

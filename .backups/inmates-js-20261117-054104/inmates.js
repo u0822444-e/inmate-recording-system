@@ -1,0 +1,674 @@
+(function () {
+  'use strict';
+
+  var form = document.getElementById('inmateForm');
+  if (!form) return;
+
+  var modal     = document.getElementById('inmateCreateModal');
+  var openBtn   = document.getElementById('inmateCreateBtn');
+  var errorBox  = document.getElementById('inmateFormError');
+  var saveBtn   = document.getElementById('inmateSaveBtn');
+
+  /* ---------- Drug Case Type Toggle ---------- */
+  var drugCaseCheckbox = document.getElementById('inmateIsDrugCase');
+  var drugCaseTypeWrap = document.getElementById('inmateDrugCaseTypeWrap');
+  if (drugCaseCheckbox) {
+    drugCaseCheckbox.addEventListener('change', function() {
+      drugCaseTypeWrap.style.display = this.checked ? '' : 'none';
+      if (!this.checked) {
+        document.getElementById('inmateDrugCaseType').value = 'Not Applicable';
+      }
+    });
+  }
+
+  /* ============================================================
+     SEARCHABLE SELECT INSTANCES
+     ============================================================ */
+
+  var cellSelect = new SearchableSelect({
+    container: document.getElementById('inmateCellWrap'),
+    placeholder: 'Select Jail Unit first',
+    onChange: function(value) {
+      // Optional: track cell selection if needed
+    }
+  });
+  cellSelect.setDisabled(true);
+
+  var jailUnitSelect = new SearchableSelect({
+    container: document.getElementById('inmateJailUnitWrap'),
+    placeholder: 'Select jail unit',
+    onChange: function (value) {
+      document.getElementById('inmateJailUnitId').value = value;
+      
+      // Cascade: Load cells when jail unit changes
+      cellSelect.clear();
+      cellSelect.setItems([]);
+      cellSelect.setDisabled(true);
+      
+      if (value) loadCells(value);
+    }
+  });
+
+  var provinceSelect = new SearchableSelect({
+    container: document.getElementById('inmateProvinceWrap'),
+    placeholder: 'Select province',
+    onChange: function (value) {
+      document.getElementById('inmateProvinceValue').value = value;
+
+      municipalitySelect.clear();
+      municipalitySelect.setItems([]);
+      municipalitySelect.setDisabled(true);
+
+      barangaySelect.clear();
+      barangaySelect.setItems([]);
+      barangaySelect.setDisabled(true);
+
+      document.getElementById('inmateMunicipalityId').value = '';
+      document.getElementById('inmateBarangayId').value = '';
+
+      if (value) loadMunicipalities(value);
+    }
+  });
+
+  var municipalitySelect = new SearchableSelect({
+    container: document.getElementById('inmateMunicipalityWrap'),
+    placeholder: 'Select municipality',
+    onChange: function (value) {
+      document.getElementById('inmateMunicipalityId').value = value;
+
+      barangaySelect.clear();
+      barangaySelect.setItems([]);
+      barangaySelect.setDisabled(true);
+      document.getElementById('inmateBarangayId').value = '';
+
+      if (value) loadBarangays(value);
+    }
+  });
+
+  var barangaySelect = new SearchableSelect({
+    container: document.getElementById('inmateBarangayWrap'),
+    placeholder: 'Select barangay',
+    onChange: function (value) {
+      document.getElementById('inmateBarangayId').value = value;
+    }
+  });
+
+  var offenseSelect = new SearchableSelect({
+    container: document.getElementById('inmateOffenseWrap'),
+    placeholder: 'Select offense',
+    onChange: function (value) {
+      document.getElementById('inmateOffenseId').value = value;
+      if (value) {
+        loadOffenseDetails(value);
+      } else {
+        applyAutoSentence(null);
+      }
+    }
+  });
+
+  municipalitySelect.setDisabled(true);
+  barangaySelect.setDisabled(true);
+
+  /* ============================================================
+     SENTENCE AUTO-FILL + OVERRIDE
+     ============================================================ */
+
+  var sentenceInput  = document.getElementById('inmateSentence');
+  var sentenceMin    = document.getElementById('inmateSentenceMin');
+  var sentenceMax    = document.getElementById('inmateSentenceMax');
+  var sentenceManual = document.getElementById('inmateSentenceManual');
+  var sentenceBadge  = document.getElementById('sentenceBadge');
+  var sentenceReset  = document.getElementById('sentenceResetBtn');
+
+  var lastAutoSentence = null;
+  var lastAutoMin      = null;
+  var lastAutoMax      = null;
+
+  function applyAutoSentence(offense) {
+    if (!offense) {
+      sentenceInput.value = '';
+      sentenceMin.value = '';
+      sentenceMax.value = '';
+      lastAutoSentence = null;
+      lastAutoMin = null;
+      lastAutoMax = null;
+      sentenceManual.value = '0';
+      updateSentenceBadge();
+      return;
+    }
+
+    var text = offense.default_sentence || '';
+    var hasMin = offense.min_years !== null && offense.min_years !== undefined;
+    var hasMax = offense.max_years !== null && offense.max_years !== undefined;
+
+    if (hasMin && hasMax) {
+      var years = (offense.min_years === offense.max_years)
+        ? offense.min_years + ' yr' + (offense.min_years === 1 ? '' : 's')
+        : offense.min_years + '–' + offense.max_years + ' yrs';
+      text = text ? text + ' (' + years + ')' : years;
+    }
+
+    sentenceInput.value = text;
+    sentenceMin.value = hasMin ? offense.min_years : '';
+    sentenceMax.value = hasMax ? offense.max_years : '';
+    lastAutoSentence = text;
+    lastAutoMin = hasMin ? offense.min_years : null;
+    lastAutoMax = hasMax ? offense.max_years : null;
+    sentenceManual.value = '0';
+    updateSentenceBadge();
+  }
+
+  function updateSentenceBadge() {
+    if (!sentenceBadge) return;
+    if (sentenceManual.value === '1' && sentenceInput.value.trim() !== '') {
+      sentenceBadge.hidden = false;
+      sentenceBadge.textContent = 'manual';
+      sentenceBadge.classList.add('is-manual');
+      if (sentenceReset) sentenceReset.hidden = false;
+    } else if (sentenceInput.value.trim() !== '') {
+      sentenceBadge.hidden = false;
+      sentenceBadge.textContent = 'auto';
+      sentenceBadge.classList.remove('is-manual');
+      if (sentenceReset) sentenceReset.hidden = true;
+    } else {
+      sentenceBadge.hidden = true;
+      sentenceBadge.classList.remove('is-manual');
+      if (sentenceReset) sentenceReset.hidden = true;
+    }
+  }
+
+  if (sentenceInput) {
+    sentenceInput.addEventListener('input', function () {
+      sentenceManual.value = (sentenceInput.value !== lastAutoSentence) ? '1' : '0';
+      updateSentenceBadge();
+    });
+  }
+
+  if (sentenceMin) {
+    sentenceMin.addEventListener('input', function () {
+      sentenceManual.value = '1';
+      updateSentenceBadge();
+    });
+  }
+
+  if (sentenceMax) {
+    sentenceMax.addEventListener('input', function () {
+      sentenceManual.value = '1';
+      updateSentenceBadge();
+    });
+  }
+
+  if (sentenceReset) {
+    sentenceReset.addEventListener('click', function () {
+      if (lastAutoSentence !== null) {
+        sentenceInput.value = lastAutoSentence;
+        sentenceManual.value = '0';
+        if (lastAutoMin !== null) sentenceMin.value = lastAutoMin; else sentenceMin.value = '';
+        if (lastAutoMax !== null) sentenceMax.value = lastAutoMax; else sentenceMax.value = '';
+        updateSentenceBadge();
+      }
+    });
+  }
+
+  /* ============================================================
+     API & LOADERS
+     ============================================================ */
+
+  function api(action, params) {
+    var url = 'index.php?route=reference&action=' + encodeURIComponent(action);
+    if (params) {
+      Object.keys(params).forEach(function (k) {
+        url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+      });
+    }
+    return fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok || !data.success) throw new Error(data.message || 'Error');
+          return data;
+        });
+      });
+  }
+
+  function loadNextPdl() {
+    api('next-pdl').then(function (data) {
+      document.getElementById('inmateNumber').value = data.pdl_no;
+    }).catch(function (err) { console.error(err); });
+  }
+
+  function loadNextCase() {
+    api('next-case').then(function (data) {
+      document.getElementById('inmateCaseRef').value = data.case_no;
+    }).catch(function (err) { console.error(err); });
+  }
+
+  function loadJailUnits() {
+    api('jail-units').then(function (data) {
+      jailUnitSelect.setItems((data.jail_units || []).map(function (u) {
+        return { value: u.id, label: u.name + ' (' + u.dormitory + ')' };
+      }));
+    }).catch(function (err) { console.error(err); });
+  }
+
+  function loadCells(jailUnitId) {
+    api('cells', { jail_unit_id: jailUnitId }).then(function (data) {
+      cellSelect.setItems(data.cells.map(function (c) {
+        return { value: c.cell_name, label: c.cell_name };
+      }));
+      cellSelect.setDisabled(false);
+    }).catch(function (err) { console.error('Error loading cells:', err); });
+  }
+
+  function loadProvinces() {
+    api('provinces').then(function (data) {
+      provinceSelect.setItems(data.provinces.map(function (p) {
+        return { value: p, label: p };
+      }));
+    }).catch(function (err) { console.error(err); });
+  }
+
+  function loadMunicipalities(province) {
+    municipalitySelect.setDisabled(true);
+    municipalitySelect.setItems([]);
+    api('municipalities', { province: province }).then(function (data) {
+      municipalitySelect.setItems(data.municipalities.map(function (m) {
+        return { value: m.id, label: m.name };
+      }));
+      municipalitySelect.setDisabled(false);
+    }).catch(function (err) { console.error(err); });
+  }
+
+  function loadBarangays(municipalityId) {
+    barangaySelect.setDisabled(true);
+    barangaySelect.setItems([]);
+    api('barangays', { municipality_id: municipalityId }).then(function (data) {
+      barangaySelect.setItems(data.barangays.map(function (b) {
+        return { value: b.id, label: b.name };
+      }));
+      barangaySelect.setDisabled(false);
+    }).catch(function (err) { console.error(err); });
+  }
+
+  function loadOffenses() {
+    api('offenses').then(function (data) {
+      offenseSelect.setItems(data.offenses.map(function (o) {
+        return {
+          value: o.id,
+          label: o.name + (o.code ? ' (' + o.code + ')' : ''),
+          raw: o
+        };
+      }));
+    }).catch(function (err) { console.error(err); });
+  }
+
+  function loadOffenseDetails(id) {
+    api('offense', { id: id }).then(function (data) {
+      var o = data.offense;
+      document.getElementById('inmateOffenseId').value = o.id;
+      applyAutoSentence(o);
+    }).catch(function (err) { console.error(err); });
+  }
+
+  function openModal() {
+    if (!modal) return;
+
+    form.reset();
+    errorBox.hidden = true;
+    errorBox.textContent = '';
+
+    form.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
+
+    jailUnitSelect.clear();
+    cellSelect.clear();
+    cellSelect.setItems([]);
+    cellSelect.setDisabled(true);
+    
+    provinceSelect.clear();
+    municipalitySelect.clear();
+    municipalitySelect.setItems([]);
+    municipalitySelect.setDisabled(true);
+    barangaySelect.clear();
+    barangaySelect.setItems([]);
+    barangaySelect.setDisabled(true);
+    offenseSelect.clear();
+
+    document.getElementById('inmateJailUnitId').value = '';
+    document.getElementById('inmateMunicipalityId').value = '';
+    document.getElementById('inmateBarangayId').value = '';
+    document.getElementById('inmateOffenseId').value = '';
+    document.getElementById('inmateClassification').value = '';
+    document.getElementById('inmateCommittedAt').value = '';
+    document.getElementById('inmateIsDrugCase').checked = false;
+    
+    document.getElementById('inmateDrugCaseType').value = 'Not Applicable';
+    drugCaseTypeWrap.style.display = 'none';
+
+    sentenceMin.value = '';
+    sentenceMax.value = '';
+    sentenceManual.value = '0';
+    lastAutoSentence = null;
+    lastAutoMin = null;
+    lastAutoMax = null;
+    updateSentenceBadge();
+
+    loadNextPdl();
+    loadNextCase();
+
+    modal.classList.remove('is-hidden');
+    document.body.classList.add('modal-open');
+    setTimeout(function () {
+      document.getElementById('inmateFirstName').focus();
+    }, 50);
+  }
+
+  function closeModal() {
+    if (!modal) return;
+    modal.classList.add('is-hidden');
+    document.body.classList.remove('modal-open');
+  }
+
+  if (openBtn) openBtn.addEventListener('click', openModal);
+
+  if (modal) {
+    modal.addEventListener('click', function (e) {
+      if (e.target.closest('[data-inmate-create-close]')) closeModal();
+    });
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    form.querySelectorAll('.is-invalid').forEach(function(el) { el.classList.remove('is-invalid'); });
+    errorBox.hidden = true;
+
+    var payload = {
+      inmate_number:      document.getElementById('inmateNumber').value,
+      jail_unit_id:       document.getElementById('inmateJailUnitId').value,
+      cell:               cellSelect.getValue(),
+      case_reference:     document.getElementById('inmateCaseRef').value,
+      first_name:         document.getElementById('inmateFirstName').value.trim(),
+      middle_name:        document.getElementById('inmateMiddleName').value.trim(),
+      last_name:          document.getElementById('inmateLastName').value.trim(),
+      suffix:             document.getElementById('inmateSuffix').value.trim(),
+      date_of_birth:      document.getElementById('inmateDob').value,
+      sex:                document.getElementById('inmateSex').value,
+      civil_status:       document.getElementById('inmateCivilStatus').value,
+      province:           document.getElementById('inmateProvinceValue').value,
+      municipality_id:    document.getElementById('inmateMunicipalityId').value,
+      barangay_id:        document.getElementById('inmateBarangayId').value,
+      offense_id:         document.getElementById('inmateOffenseId').value,
+      classification:     document.getElementById('inmateClassification').value,
+      committed_at:       document.getElementById('inmateCommittedAt').value,
+      is_drug_case:       document.getElementById('inmateIsDrugCase').checked ? 1 : 0,
+      drug_case_type:     document.getElementById('inmateDrugCaseType').value,
+      sentence:           sentenceInput.value.trim(),
+      sentence_years_min: sentenceMin.value,
+      sentence_years_max: sentenceMax.value,
+      sentence_is_manual: sentenceManual.value === '1' ? 1 : 0,
+      admission_date:     document.getElementById('inmateAdmissionDate').value,
+      custody_status:     document.getElementById('inmateCustodyStatus').value,
+      notes:              document.getElementById('inmateNotes').value.trim()
+    };
+
+    var missing = [];
+
+    var textFields = [
+      { id: 'inmateFirstName', key: 'first_name', label: 'First name' },
+      { id: 'inmateMiddleName', key: 'middle_name', label: 'Middle name' },
+      { id: 'inmateLastName', key: 'last_name', label: 'Last name' },
+      { id: 'inmateDob', key: 'date_of_birth', label: 'Date of birth' },
+      { id: 'inmateCivilStatus', key: 'civil_status', label: 'Civil status' },
+      { id: 'inmateCommittedAt', key: 'committed_at', label: 'Committed date' },
+      { id: 'inmateAdmissionDate', key: 'admission_date', label: 'Admission date' }
+    ];
+
+    textFields.forEach(function(f) {
+      if (!payload[f.key]) {
+        missing.push(f.label);
+        var el = document.getElementById(f.id);
+        if (el) el.classList.add('is-invalid');
+      }
+    });
+
+    var selectFields = [
+      { key: 'jail_unit_id', label: 'Jail Unit', wrapId: 'inmateJailUnitWrap' },
+      { key: 'province', label: 'Province', wrapId: 'inmateProvinceWrap' },
+      { key: 'municipality_id', label: 'Municipality', wrapId: 'inmateMunicipalityWrap' },
+      { key: 'barangay_id', label: 'Barangay', wrapId: 'inmateBarangayWrap' },
+      { key: 'offense_id', label: 'Offense', wrapId: 'inmateOffenseWrap' }
+    ];
+
+    selectFields.forEach(function(f) {
+      if (!payload[f.key]) {
+        missing.push(f.label);
+        var wrap = document.getElementById(f.wrapId);
+        if (wrap) {
+            var input = wrap.querySelector('.searchable-select__control');
+            if (input) input.classList.add('is-invalid');
+        }
+      }
+    });
+
+    if (!payload.sentence) {
+      missing.push('Sentence');
+      sentenceInput.classList.add('is-invalid');
+    }
+    if (!payload.sentence_years_min) {
+      missing.push('Years (min)');
+      sentenceMin.classList.add('is-invalid');
+    }
+    if (!payload.sentence_years_max) {
+      missing.push('Years (max)');
+      sentenceMax.classList.add('is-invalid');
+    }
+
+    if (missing.length > 0) {
+      errorBox.innerHTML = '<strong>Please fill in the following required fields:</strong><br>' + missing.join(', ');
+      errorBox.hidden = false;
+      return;
+    }
+
+    var minVal = parseFloat(payload.sentence_years_min);
+    var maxVal = parseFloat(payload.sentence_years_max);
+    if (!isNaN(minVal) && !isNaN(maxVal) && minVal > maxVal) {
+      errorBox.textContent = 'Minimum years cannot be greater than maximum years.';
+      errorBox.hidden = false;
+      return;
+    }
+
+    var fullName = (payload.first_name + ' ' + payload.last_name).trim();
+    var confirmed = await window.confirmDialog({
+      title: 'Save Inmate Record',
+      message: 'Create a new inmate record for "' + fullName + '" with number ' + payload.inmate_number + '?',
+      confirmLabel: 'Save Record'
+    });
+    if (!confirmed) return;
+
+    errorBox.hidden = true;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    fetch('index.php?route=inmates&action=create', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.success) throw new Error(data.message || 'Error');
+        return data;
+      });
+    }).then(function () {
+      closeModal();
+      window.showSuccess({
+        title: 'Inmate Saved',
+        message: 'Record ' + payload.inmate_number + ' has been created successfully.'
+      });
+
+      document.dispatchEvent(new CustomEvent('inmates:changed'));
+    }).catch(function (err) {
+      errorBox.textContent = err.message;
+      errorBox.hidden = false;
+    }).finally(function () {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save Record';
+    });
+  });
+
+  loadJailUnits();
+  loadProvinces();
+  loadOffenses();
+})();
+/* drill-down: drill-inmates */
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "inmates") return;
+  var f = e.detail.filter || {};
+  var search = document.getElementById("inmateSearchInput");
+  var keys = ["classification","offense","unit","age_group","drug","admitted_month"];
+  for (var i = 0; i < keys.length; i++) {
+    if (f[keys[i]] && search) {
+      search.value = f[keys[i]];
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      break;
+    }
+  }
+  if (typeof window.loadInmates === "function") window.loadInmates();
+});
+
+/* ============================================================
+   drill-down filter API — real DOM IDs from inmates-section.php
+   ============================================================ */
+window.applyInmateFilter = function (f) {
+  f = f || {};
+  console.log("[drill] applyInmateFilter", f);
+
+  var search    = document.getElementById("inmateSearch");
+  var statusSel = document.getElementById("inmateStatusFilter");
+  var offenseSel= document.getElementById("inmateOffenseFilter");
+
+  var applied = false;
+
+  // classification / custody status → #inmateStatusFilter
+  var statusVal = f.classification || f.custody;
+  if (statusVal && statusSel) {
+    var found = false;
+    Array.from(statusSel.options).forEach(function (o) {
+      if (o.value.toLowerCase() === String(statusVal).toLowerCase() ||
+          o.textContent.trim().toLowerCase() === String(statusVal).toLowerCase()) {
+        statusSel.value = o.value; found = true;
+      }
+    });
+    if (!found) {
+      // try looser contains match (handles "Sentenced" vs "sentenced_pdl")
+      Array.from(statusSel.options).forEach(function (o) {
+        if (o.value.toLowerCase().includes(String(statusVal).toLowerCase()) ||
+            o.textContent.toLowerCase().includes(String(statusVal).toLowerCase())) {
+          statusSel.value = o.value; found = true;
+        }
+      });
+    }
+    if (!found && search) { search.value = statusVal; applied = true; }
+    statusSel.dispatchEvent(new Event("change", { bubbles: true }));
+    applied = true;
+  }
+
+  // offense (top_offenses chart)
+  if (f.offense && offenseSel) {
+    var found = false;
+    Array.from(offenseSel.options).forEach(function (o) {
+      if (o.value.toLowerCase() === String(f.offense).toLowerCase() ||
+          o.textContent.trim().toLowerCase() === String(f.offense).toLowerCase()) {
+        offenseSel.value = o.value; found = true;
+      }
+    });
+    if (!found && search) { search.value = f.offense; applied = true; }
+    offenseSel.dispatchEvent(new Event("change", { bubbles: true }));
+    applied = true;
+  }
+
+  // drug cases / age group → free text (no dedicated select)
+  var textTerm = f.drug || f.age_group || "";
+  if (textTerm && search) {
+    search.value = textTerm;
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    applied = true;
+  }
+
+  // unit → also lives in a select inside the filter toolbar; try by name
+  if (f.unit) {
+    var u = document.querySelector('select[name="unit"]')
+         || document.querySelector('select[name="jail_unit"]');
+    if (u) { u.value = f.unit; u.dispatchEvent(new Event("change", { bubbles: true })); applied = true; }
+  }
+
+  // admitted month
+  if (f.admitted_month) {
+    var m = document.querySelector('input[name="admitted_month"]')
+         || document.querySelector('input[type="month"]');
+    if (m) { m.value = f.admitted_month; m.dispatchEvent(new Event("change", { bubbles: true })); applied = true; }
+  }
+
+  if (!applied) console.warn("[drill] no matching input for filter", f);
+
+  // force table reload — try the global loader first, else click a "filter" btn
+  if (typeof window.loadInmates === "function") {
+    try { window.loadInmates(); return; } catch (e) { console.warn(e); }
+  }
+  var btn = document.querySelector('[data-action="filter-inmates"]')
+         || document.getElementById("inmateFilterBtn")
+         || document.querySelector('#inmatesSection .filter-btn');
+  if (btn) btn.click();
+};
+
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "inmates") return;
+  if (!e.detail.filter) return;
+  window.applyInmateFilter(e.detail.filter);
+});
+
+/* ---------- drill-down: filter-forwarding for loadInmates() ---------- */
+(function patchLoadInmatesForDrill() {
+  if (window.__drillLoadInmatesPatched) return;
+  window.__drillLoadInmatesPatched = true;
+
+  var origLoad = window.loadInmates;
+  if (typeof origLoad !== "function") {
+    console.warn("[drill] loadInmates not yet defined — will retry");
+    var tries = 0;
+    var iv = setInterval(function () {
+      if (typeof window.loadInmates === "function" || ++tries > 20) {
+        clearInterval(iv);
+        if (tries <= 20) patchLoadInmatesForDrill();
+      }
+    }, 100);
+    return;
+  }
+
+  window.loadInmates = function () {
+    var status = document.getElementById("inmateStatusFilter");
+    var offense = document.getElementById("inmateOffenseFilter");
+    var search = document.getElementById("inmateSearch");
+
+    // Snapshot the current URLSearchParams by monkey-patching fetch temporarily
+    var origFetch = window.fetch;
+    window.fetch = function (url, opts) {
+      if (typeof url === "string" && /route=inmates/.test(url)) {
+        var extra = [];
+        if (status && status.value)  extra.push("classification=" + encodeURIComponent(status.value));
+        if (offense && offense.value) extra.push("offense="       + encodeURIComponent(offense.value));
+        if (search && search.value && !offense.value) {
+          extra.push("q=" + encodeURIComponent(search.value));
+        }
+        if (extra.length) {
+          url += (url.indexOf("?") === -1 ? "?" : "&") + extra.join("&");
+        }
+      }
+      return origFetch.apply(this, arguments.length === 1 ? [url] : [url, opts]);
+    };
+
+    try { return origLoad.apply(this, arguments); }
+    finally { window.fetch = origFetch; }
+  };
+
+  console.log("[drill] loadInmates patched to forward filters");
+})();

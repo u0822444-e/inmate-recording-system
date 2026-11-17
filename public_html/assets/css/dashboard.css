@@ -8,3 +8,11 @@
   background: rgba(59, 130, 246, 0.08);
   outline: 1px solid rgba(59, 130, 246, 0.35);
 }
+
+
+/* chart drill-down affordance */
+.chart-drill-hint{font-size:.72rem;color:#94a3b8;margin-top:-6px}
+.chart-container canvas{cursor:default}
+.chart-container canvas:hover{cursor:pointer}
+.compliance-row{transition:background .15s}
+.compliance-row:hover{background:rgba(37,99,235,.06)}

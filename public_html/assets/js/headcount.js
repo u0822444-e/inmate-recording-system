@@ -720,3 +720,32 @@
   });
 
 })();
+/* drill-down: drill-headcount */
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "headcount") return;
+  var f = e.detail.filter || {};
+  if (f.unit) {
+    var u = document.querySelector("[data-headcount-unit-filter]");
+    if (u) { u.value = f.unit; u.dispatchEvent(new Event("change", { bubbles: true })); }
+  }
+  if (typeof window.loadHeadcount === "function") window.loadHeadcount();
+});
+
+/* ============================================================
+   Filter API — headcount
+   ============================================================ */
+window.applyHeadcountFilter = function (f) {
+  f = f || {};
+  if (f.unit) {
+    var u = document.querySelector('select[name="unit"]')
+         || document.querySelector('[data-headcount-unit-filter]');
+    if (u) { u.value = f.unit; u.dispatchEvent(new Event("change",{bubbles:true})); }
+  }
+  if (typeof window.loadHeadcount === "function") window.loadHeadcount();
+};
+
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "headcount") return;
+  if (!e.detail.filter) return;
+  window.applyHeadcountFilter(e.detail.filter);
+});

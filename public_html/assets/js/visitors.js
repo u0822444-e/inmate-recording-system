@@ -831,3 +831,36 @@
     if (btn) btn.click();
   });
 })();
+/* drill-down: drill-visitors */
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "visitors") return;
+  var f = e.detail.filter || {};
+  if (f.date) {
+    var d = document.querySelector("[data-visitor-date-filter]") || document.querySelector("input[name=date]");
+    if (d) { d.value = f.date; d.dispatchEvent(new Event("change", { bubbles: true })); }
+  }
+  if (typeof window.loadVisitors === "function") window.loadVisitors();
+});
+
+/* ============================================================
+   Filter API — visitors
+   ============================================================ */
+window.applyVisitorFilter = function (f) {
+  f = f || {};
+  if (f.date) {
+    var d = document.querySelector('input[name="date"]')
+         || document.querySelector('input[type="date"]')
+         || document.querySelector('[data-visitor-date-filter]');
+    if (d) { d.value = f.date; d.dispatchEvent(new Event("change",{bubbles:true})); }
+  }
+  if (typeof window.loadVisitors === "function") { window.loadVisitors(); return; }
+  var btn = document.querySelector('[data-action="filter-visitors"]')
+         || document.getElementById("visitorFilterBtn");
+  if (btn) btn.click();
+};
+
+document.addEventListener("section:changed", function (e) {
+  if (!e.detail || e.detail.section !== "visitors") return;
+  if (!e.detail.filter) return;
+  window.applyVisitorFilter(e.detail.filter);
+});

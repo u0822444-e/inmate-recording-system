@@ -9,6 +9,26 @@ class Dashboard
 {
     public function __construct(private mysqli $db) {}
 
+    /**
+     * Run a SELECT and return all rows as associative arrays.
+     * Mirrors the manual while($row = $result->fetch_assoc()) style used
+     * elsewhere in this model, but DRY.
+     */
+    private function fetchAll(string $sql): array
+    {
+        $result = $this->db->query($sql);
+        if (!$result) {
+            throw new \RuntimeException("SQL error: " . $this->db->error . " | " . $sql);
+        }
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $result->free();
+        return $rows;
+    }
+
+
     /* ============================================================
        ADMIN KPIs
        ============================================================ */
@@ -305,47 +325,25 @@ class Dashboard
 
     public function classificationBreakdown(): array
     {
-        try {
-            $result = $this->db->query(
-                "SELECT COALESCE(classification, 'Unclassified') AS label,
-                        COUNT(*) AS count
-                 FROM inmates
-                 WHERE custody_status = 'In Custody'
-                 GROUP BY COALESCE(classification, 'Unclassified')
-                 ORDER BY count DESC"
-            );
-            return array_map(fn($r) => [
-                'label' => (string) $r['label'],
-                'count' => (int) $r['count'],
-            ], $result->fetch_all(MYSQLI_ASSOC));
-        } catch (\Throwable $e) {
-            return [];
-        }
+        $sql = "SELECT COALESCE(NULLIF(TRIM(classification), ''), 'Unspecified') AS label,
+                       COUNT(*) AS count
+                  FROM inmates
+                 GROUP BY label
+                 ORDER BY count DESC";
+        return $this->fetchAll($sql);
     }
 
     public function topOffenses(int $limit = 8): array
     {
-        try {
-            $stmt = $this->db->prepare(
-                "SELECT o.name AS label, COUNT(i.id) AS count
-                 FROM inmates i
-                 INNER JOIN offenses o ON o.id = i.offense_id
-                 WHERE i.custody_status = 'In Custody'
-                 GROUP BY o.id, o.name
+        $limit = max(1, min(20, $limit));
+        $sql = "SELECT COALESCE(NULLIF(TRIM(o.name), ''), 'Unknown') AS label,
+                       COUNT(*) AS count
+                  FROM inmates i
+                  LEFT JOIN offenses o ON o.id = i.offense_id
+                 GROUP BY label
                  ORDER BY count DESC
-                 LIMIT ?"
-            );
-            $stmt->bind_param('i', $limit);
-            $stmt->execute();
-            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-            $stmt->close();
-            return array_map(fn($r) => [
-                'label' => (string) $r['label'],
-                'count' => (int) $r['count'],
-            ], $rows);
-        } catch (\Throwable $e) {
-            return [];
-        }
+                 LIMIT $limit";
+        return $this->fetchAll($sql);
     }
 
     public function visitorsPerDay(int $days = 14): array
@@ -412,76 +410,48 @@ class Dashboard
 
     public function ageDistribution(): array
     {
-        try {
-            $result = $this->db->query(
-                "SELECT
-                    CASE
-                        WHEN age < 18 THEN 'Under 18'
-                        WHEN age < 30 THEN '18–29'
-                        WHEN age < 40 THEN '30–39'
-                        WHEN age < 50 THEN '40–49'
-                        WHEN age < 60 THEN '50–59'
-                        ELSE '60+'
-                    END AS label,
-                    COUNT(*) AS count
-                 FROM (
-                     SELECT TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age
-                     FROM inmates
-                     WHERE custody_status = 'In Custody' AND date_of_birth IS NOT NULL
-                 ) AS a
-                 GROUP BY label
-                 ORDER BY FIELD(label, 'Under 18','18–29','30–39','40–49','50–59','60+')"
-            );
-            return array_map(fn($r) => [
-                'label' => (string) $r['label'],
-                'count' => (int) $r['count'],
-            ], $result->fetch_all(MYSQLI_ASSOC));
-        } catch (\Throwable $e) {
-            return [];
-        }
+        $sql = "SELECT
+                  CASE
+                    WHEN date_of_birth IS NULL THEN 'Unknown'
+                    WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) < 18 THEN 'Under 18'
+                    WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) < 25 THEN '18-24'
+                    WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) < 35 THEN '25-34'
+                    WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) < 45 THEN '35-44'
+                    WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) < 55 THEN '45-54'
+                    WHEN TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) < 65 THEN '55-64'
+                    ELSE '65+'
+                  END AS label,
+                  COUNT(*) AS count
+                FROM inmates
+               GROUP BY label
+               ORDER BY FIELD(label,'Under 18','18-24','25-34','35-44','45-54','55-64','65+','Unknown')";
+        return $this->fetchAll($sql);
     }
 
     public function inmatesByUnit(): array
     {
-        try {
-            $result = $this->db->query(
-                "SELECT j.name AS label,
-                        SUM(CASE WHEN i.sex = 'Male'   THEN 1 ELSE 0 END) AS male,
-                        SUM(CASE WHEN i.sex = 'Female' THEN 1 ELSE 0 END) AS female
-                 FROM jail_units j
-                 LEFT JOIN inmates i ON i.jail_unit_id = j.id AND i.custody_status = 'In Custody'
-                 WHERE j.is_active = 1
-                 GROUP BY j.id, j.name
-                 ORDER BY j.name"
-            );
-            return array_map(fn($r) => [
-                'label'  => (string) $r['label'],
-                'male'   => (int) $r['male'],
-                'female' => (int) $r['female'],
-            ], $result->fetch_all(MYSQLI_ASSOC));
-        } catch (\Throwable $e) {
-            return [];
-        }
+        $sql = "SELECT COALESCE(ju.name, 'Unassigned') AS label, COUNT(*) AS count
+                  FROM inmates i
+                  LEFT JOIN jail_units ju ON ju.id = i.jail_unit_id
+                 GROUP BY label
+                 ORDER BY count DESC";
+        return $this->fetchAll($sql);
     }
 
     public function drugCaseBreakdown(): array
     {
-        try {
-            $result = $this->db->query(
-                "SELECT COALESCE(drug_case_law, 'Not Specified') AS label,
-                        COUNT(*) AS count
-                 FROM inmates
-                 WHERE is_drug_case = 1 AND custody_status = 'In Custody'
-                 GROUP BY COALESCE(drug_case_law, 'Not Specified')
-                 ORDER BY count DESC"
-            );
-            return array_map(fn($r) => [
-                'label' => (string) $r['label'],
-                'count' => (int) $r['count'],
-            ], $result->fetch_all(MYSQLI_ASSOC));
-        } catch (\Throwable $e) {
-            return [];
-        }
+        $sql = "SELECT
+                  CASE
+                    WHEN is_drug_case = 0 THEN 'Non-drug'
+                    WHEN drug_case_type IS NULL OR drug_case_type = ''
+                         OR drug_case_type = 'Not Applicable' THEN 'Drug (unspecified)'
+                    ELSE drug_case_type
+                  END AS label,
+                  COUNT(*) AS count
+                FROM inmates
+               GROUP BY label
+               ORDER BY count DESC";
+        return $this->fetchAll($sql);
     }
 
     public function headcountComplianceToday(): array
@@ -673,4 +643,15 @@ class Dashboard
             return [];
         }
     }
+
+    public function custodyBreakdown(): array
+    {
+        $sql = "SELECT COALESCE(NULLIF(TRIM(custody_status), ''), 'Unknown') AS label,
+                       COUNT(*) AS count
+                  FROM inmates
+                 GROUP BY label
+                 ORDER BY count DESC";
+        return $this->fetchAll($sql);
+    }
+
 }
