@@ -1,12 +1,19 @@
+<section id="dashboard-inmates" class="dashboard-section" data-is-admin="<?= $isAdmin ? '1' : '0' ?>">
 
+<?php
+$cellsList = [];
+if (isset($db)) {
+    $res = $db->query("SELECT DISTINCT cell FROM inmates WHERE cell IS NOT NULL AND cell != '' ORDER BY cell ASC");
+    while($r = $res->fetch_assoc()) {
+        $cellsList[] = $r['cell'];
+    }
+}
+?>
+<script>
+    window.__inmateCells = <?= json_encode($cellsList) ?>;
+</script>
 
-
-
-        
-"
-    data-is-admin="<?= $isAdmin ? '1' : '0' ?>">
-
-    <header class="section-header">
+<header class="section-header">
         <div>
             <h1>PDL Records</h1>
             <p>Search, filter, and review PDL records.</p>
@@ -47,7 +54,7 @@
 
                 
                 
-                <div id="inmateCellFilterWrap" class="filter-select-wrap" style="flex: 1; min-width: 120px;"></div>
+                <div id="inmateCellFilterWrap" class="filter-toolbar__field" style="flex: 1; min-width: 120px;"></div>
                 <select id="inmateOffenseFilter" class="input-select" aria-label="Filter by offense">
                     <option value="">All offenses</option>
                 </select>
