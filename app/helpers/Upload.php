@@ -8,10 +8,10 @@ class Upload
     /** Absolute filesystem path to the public uploads root. */
     private const ROOT = __DIR__ . '/../../public_html/uploads';
 
-    /** Web-relative prefix used in <img src>. */
-    public const WEB_PREFIX = 'uploads';
+    /** Web-relative prefix used in <img src>. Must be root-absolute. */
+    public const WEB_PREFIX = '/uploads';
 
-    /** Maximum avatar size in bytes (2 MB). */
+    /** Maximum avatar size in bytes (5 MB). */
     private const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 
     /** Allowed image MIME types mapped to their canonical extension. */
@@ -21,12 +21,6 @@ class Upload
         IMAGETYPE_WEBP => 'webp',
     ];
 
-    /**
-     * Handle an avatar upload for the given user id.
-     * Returns the relative path to store in users.avatar_path, or null on no upload.
-     *
-     * @throws \RuntimeException on invalid file or failed write
-     */
     public static function saveAvatar(array $file, int $userId): ?string
     {
         if (!isset($file['error']) || $file['error'] === UPLOAD_ERR_NO_FILE) {
@@ -36,14 +30,13 @@ class Upload
             throw new \RuntimeException('Upload failed (code ' . $file['error'] . ').');
         }
         if ($file['size'] > self::AVATAR_MAX_BYTES) {
-            throw new \RuntimeException('Avatar must be 2 MB or smaller.');
+            throw new \RuntimeException('Avatar must be 5 MB or smaller.');
         }
 
         $info = @getimagesize($file['tmp_name']);
         if ($info === false) {
             throw new \RuntimeException('File is not a valid image.');
         }
-
         if (!isset(self::AVATAR_TYPES[$info[2]])) {
             throw new \RuntimeException('Only JPG, PNG, and WebP are allowed.');
         }
@@ -54,7 +47,6 @@ class Upload
             throw new \RuntimeException('Could not create avatar directory.');
         }
 
-        // Random suffix prevents collisions and defeats guessable URLs.
         $name = $userId . '-' . bin2hex(random_bytes(8)) . '.' . $ext;
         $dest = $dir . '/' . $name;
 
@@ -65,12 +57,6 @@ class Upload
         return self::WEB_PREFIX . '/avatar/' . $name;
     }
 
-    /**
-     * Delete an avatar file (best-effort).
-     *
-     * Only deletes files that resolve inside public_html/uploads/avatar/,
-     * so a tampered users.avatar_path can't be used to unlink arbitrary files.
-     */
     public static function deleteAvatar(?string $relative): void
     {
         if (!$relative) {
@@ -84,8 +70,6 @@ class Upload
         if ($real === false || $allowedRoot === false) {
             return;
         }
-
-        // Must live inside the avatar folder; reject any ../ traversal.
         if (strpos($real, $allowedRoot . DIRECTORY_SEPARATOR) !== 0) {
             return;
         }
