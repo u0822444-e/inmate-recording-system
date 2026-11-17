@@ -115,7 +115,7 @@ class InmateController
         );
 
         $stmt->bind_param(
-            'ssisssssssiiiisssssissssssi',
+            'sisssssssssiiiissssissssssi',
             $inmateNumber, $jailUnitId, $cell, $firstName, $middleName, $lastName, $suffix, $avatarPath,
             $dob, $sex, $civilStatus, $municipalityId, $barangayId, $offenseId, $isDrugCase, $drugCaseType,
             $sentence, $sentenceMin, $sentenceMax, $sentenceManual,
@@ -445,7 +445,7 @@ class InmateController
         );
 
         $stmt->bind_param(
-            'ssisssssssiiiisssssissssssii',
+            'sisssssssssiiiissssissssssii',
             $inmateNumber, $jailUnitId, $cell, $firstName, $middleName, $lastName, $suffix, $avatarPath,
             $dob, $sex, $civilStatus, $municipalityId, $barangayId, $offenseId, $isDrugCase, $drugCaseType,
             $sentence, $sentenceMin, $sentenceMax, $sentenceManual,

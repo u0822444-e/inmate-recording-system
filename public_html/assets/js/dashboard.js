@@ -588,17 +588,26 @@
     teal: "#0891b2",
     slate: "#64748b",
     pink: "#db2777",
-    palette: [
-      "#2563eb",
-      "#16a34a",
-      "#f59e0b",
-      "#dc2626",
-      "#7c3aed",
-      "#0891b2",
-      "#db2777",
-      "#64748b",
+    // Distinct colors — assigned in order, never repeated within a chart
+    unique: [
+      "#2563eb", "#16a34a", "#f59e0b", "#dc2626",
+      "#7c3aed", "#0891b2", "#db2777", "#64748b",
+      "#ea580c", "#65a30d", "#0d9488", "#9333ea",
+      "#0284c7", "#c2410c", "#4d7c0f", "#be123c",
     ],
   };
+
+  // Cycle colors so adjacent slices never repeat
+  function colorAt(i) {
+    return THEME.unique[i % THEME.unique.length];
+  }
+
+  // Convert an array of {count} to percentages that sum to 100
+  function toPercent(rows) {
+    var total = rows.reduce(function (s, r) { return s + (Number(r.count) || 0); }, 0);
+    if (total === 0) return rows.map(function () { return 0; });
+    return rows.map(function (r) { return Math.round((Number(r.count) / total) * 10000) / 100; });
+  }
 
   if (window.Chart) {
     Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
@@ -685,29 +694,24 @@
       safeCreate("classification", el("chartClassification"), {
         type: "doughnut",
         data: {
-          labels: a.classification.map(function (r) {
-            return r.label;
-          }),
-          datasets: [
-            {
-              data: a.classification.map(function (r) {
-                return r.count;
-              }),
-              backgroundColor: THEME.palette,
-              borderWidth: 0,
-            },
-          ],
+          labels: a.classification.map(function (r) { return r.label; }),
+          datasets: [{
+            data: toPercent(a.classification),
+            backgroundColor: a.classification.map(function (_, i) { return colorAt(i); }),
+            borderWidth: 0,
+          }],
         },
         options: {
           cutout: "62%",
-          plugins: { 
-            legend: { 
-              position: "bottom",
-              labels: {
-                // Only show the legend if there is more than 1 classification
-                display: a.classification.length > 1 
+          plugins: {
+            legend: { position: "bottom", display: a.classification.length > 1 },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) {
+                  return ctx.label + ': ' + ctx.parsed.toFixed(2) + '%';
+                }
               }
-            } 
+            }
           }
         },
       });
@@ -717,25 +721,26 @@
       safeCreate("offenses", el("chartTopOffenses"), {
         type: "bar",
         data: {
-          labels: a.top_offenses.map(function (r) {
-            return r.label;
-          }),
-          datasets: [
-            {
-              label: "Inmates",
-              data: a.top_offenses.map(function (r) {
-                return r.count;
-              }),
-              backgroundColor: THEME.primary,
-              borderRadius: 4,
-            },
-          ],
+          labels: a.top_offenses.map(function (r) { return r.label; }),
+          datasets: [{
+            label: "Share",
+            data: toPercent(a.top_offenses),
+            backgroundColor: a.top_offenses.map(function (_, i) { return colorAt(i); }),
+            borderRadius: 4,
+          }],
         },
         options: {
           indexAxis: "y",
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) { return ctx.parsed.x.toFixed(2) + '%'; }
+              }
+            }
+          },
           scales: {
-            x: { beginAtZero: true, ticks: { precision: 0 } },
+            x: { beginAtZero: true, ticks: { callback: function (v) { return v + '%'; } } },
             y: { grid: { display: false } },
           },
         },
@@ -746,24 +751,25 @@
       safeCreate("visitors", el("chartVisitors"), {
         type: "bar",
         data: {
-          labels: a.visitors_per_day.map(function (r) {
-            return shortDate(r.date);
-          }),
-          datasets: [
-            {
-              label: "Visitors",
-              data: a.visitors_per_day.map(function (r) {
-                return r.count;
-              }),
-              backgroundColor: THEME.success,
-              borderRadius: 4,
-            },
-          ],
+          labels: a.visitors_per_day.map(function (r) { return shortDate(r.date); }),
+          datasets: [{
+            label: "Share",
+            data: toPercent(a.visitors_per_day),
+            backgroundColor: a.visitors_per_day.map(function (_, i) { return colorAt(i); }),
+            borderRadius: 4,
+          }],
         },
         options: {
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) { return ctx.parsed.y.toFixed(2) + '%'; }
+              }
+            }
+          },
           scales: {
-            y: { beginAtZero: true, ticks: { precision: 0 } },
+            y: { beginAtZero: true, ticks: { callback: function (v) { return v + '%'; } } },
             x: { grid: { display: false } },
           },
         },
@@ -774,61 +780,64 @@
       safeCreate("incType", el("chartIncidentsType"), {
         type: "doughnut",
         data: {
-          labels: a.incidents_by_type.map(function (r) {
-            return r.label;
-          }),
-          datasets: [
-            {
-              data: a.incidents_by_type.map(function (r) {
-                return r.count;
-              }),
-              backgroundColor: [
-                THEME.danger,
-                THEME.warning,
-                THEME.slate,
-                THEME.purple,
-                THEME.teal,
-              ],
-              borderWidth: 0,
-            },
-          ],
+          labels: a.incidents_by_type.map(function (r) { return r.label; }),
+          datasets: [{
+            data: toPercent(a.incidents_by_type),
+            backgroundColor: a.incidents_by_type.map(function (_, i) { return colorAt(i); }),
+            borderWidth: 0,
+          }],
         },
-        options: { cutout: "62%", plugins: { legend: { position: "bottom" } } },
+        options: {
+          cutout: "62%",
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) { return ctx.label + ': ' + ctx.parsed.toFixed(2) + '%'; }
+              }
+            }
+          }
+        },
       });
     }
 
     if (a.incidents_by_severity && a.incidents_by_severity.length) {
+      var sev = a.incidents_by_severity.map(function (r) {
+        return { label: r.label, open: Number(r.open) || 0, resolved: Number(r.resolved) || 0 };
+      });
+      var sevTotal = sev.reduce(function (s, r) { return s + r.open + r.resolved; }, 0) || 1;
       safeCreate("incSeverity", el("chartIncidentsSeverity"), {
         type: "bar",
         data: {
-          labels: a.incidents_by_severity.map(function (r) {
-            return r.label;
-          }),
+          labels: sev.map(function (r) { return r.label; }),
           datasets: [
             {
               label: "Unresolved",
-              data: a.incidents_by_severity.map(function (r) {
-                return r.open;
-              }),
-              backgroundColor: THEME.danger,
+              data: sev.map(function (r) { return Math.round((r.open / sevTotal) * 10000) / 100; }),
+              backgroundColor: colorAt(0),
               borderRadius: 4,
               stack: "s",
             },
             {
               label: "Resolved",
-              data: a.incidents_by_severity.map(function (r) {
-                return r.resolved;
-              }),
-              backgroundColor: THEME.success,
+              data: sev.map(function (r) { return Math.round((r.resolved / sevTotal) * 10000) / 100; }),
+              backgroundColor: colorAt(1),
               borderRadius: 4,
               stack: "s",
             },
           ],
         },
         options: {
-          plugins: { legend: { position: "bottom" } },
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%'; }
+              }
+            }
+          },
           scales: {
-            y: { beginAtZero: true, stacked: true, ticks: { precision: 0 } },
+            y: { beginAtZero: true, stacked: true, ticks: { callback: function (v) { return v + '%'; } } },
             x: { stacked: true, grid: { display: false } },
           },
         },
@@ -839,52 +848,23 @@
       safeCreate("age", el("chartAge"), {
         type: "bar",
         data: {
-          labels: a.age_distribution.map(function (r) {
-            return r.label;
-          }),
-          datasets: [
-            {
-              label: "Inmates",
-              data: a.age_distribution.map(function (r) {
-                return r.count;
-              }),
-              backgroundColor: THEME.purple,
-              borderRadius: 4,
-            },
-          ],
+          labels: a.age_distribution.map(function (r) { return r.label; }),
+          datasets: [{
+            label: "Share",
+            data: toPercent(a.age_distribution),
+            backgroundColor: a.age_distribution.map(function (_, i) { return colorAt(i); }),
+            borderRadius: 4,
+          }],
         },
         options: {
-          plugins: { legend: { display: false } },
-          scales: {
-            y: { beginAtZero: true, ticks: { precision: 0 } },
-            x: { grid: { display: false } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { label: function (ctx) { return ctx.parsed.y.toFixed(2) + '%'; } }
+            }
           },
-        },
-      });
-    }
-
-    if (a.inmates_by_unit && a.inmates_by_unit.length) {
-      safeCreate("units", el("chartUnits"), {
-        type: "bar",
-        data: {
-          labels: a.inmates_by_unit.map(function (r) {
-            return r.label;
-          }),
-          datasets: [
-            {
-              label: "Male",
-              data: a.inmates_by_unit.map(function (r) {
-                return r.male;
-              }),
-              backgroundColor: THEME.primary,
-              borderRadius: 4,
-            },
-          ],
-        },
-        options: {
-          plugins: { legend: { position: "bottom" } },
           scales: {
-            y: { beginAtZero: true, ticks: { precision: 0 } },
+            y: { beginAtZero: true, ticks: { callback: function (v) { return v + '%'; } } },
             x: { grid: { display: false } },
           },
         },
@@ -895,20 +875,24 @@
       safeCreate("drug", el("chartDrugCases"), {
         type: "doughnut",
         data: {
-          labels: a.drug_cases.map(function (r) {
-            return r.label;
-          }),
-          datasets: [
-            {
-              data: a.drug_cases.map(function (r) {
-                return r.count;
-              }),
-              backgroundColor: [THEME.warning, THEME.danger, THEME.slate],
-              borderWidth: 0,
-            },
-          ],
+          labels: a.drug_cases.map(function (r) { return r.label; }),
+          datasets: [{
+            data: toPercent(a.drug_cases),
+            backgroundColor: a.drug_cases.map(function (_, i) { return colorAt(i); }),
+            borderWidth: 0,
+          }],
         },
-        options: { cutout: "62%", plugins: { legend: { position: "bottom" } } },
+        options: {
+          cutout: "62%",
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                label: function (ctx) { return ctx.label + ': ' + ctx.parsed.toFixed(2) + '%'; }
+              }
+            }
+          }
+        },
       });
     }
 
@@ -916,28 +900,27 @@
       safeCreate("admissions", el("chartAdmissions"), {
         type: "line",
         data: {
-          labels: a.admissions_by_month.map(function (r) {
-            return r.month;
-          }),
-          datasets: [
-            {
-              label: "Admissions",
-              data: a.admissions_by_month.map(function (r) {
-                return r.count;
-              }),
-              borderColor: THEME.teal,
-              backgroundColor: "rgba(8, 145, 178, 0.10)",
-              borderWidth: 2,
-              fill: true,
-              tension: 0.35,
-              pointRadius: 3,
-            },
-          ],
+          labels: a.admissions_by_month.map(function (r) { return r.month; }),
+          datasets: [{
+            label: "Share",
+            data: toPercent(a.admissions_by_month),
+            borderColor: THEME.teal,
+            backgroundColor: "rgba(8, 145, 178, 0.10)",
+            borderWidth: 2,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 3,
+          }],
         },
         options: {
-          plugins: { legend: { display: false } },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: { label: function (ctx) { return ctx.parsed.y.toFixed(2) + '%'; } }
+            }
+          },
           scales: {
-            y: { beginAtZero: true, ticks: { precision: 0 } },
+            y: { beginAtZero: true, ticks: { callback: function (v) { return v + '%'; } } },
             x: { grid: { display: false } },
           },
         },

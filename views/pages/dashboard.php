@@ -251,23 +251,14 @@ $currentSection = in_array($requested, $allowedSections, true) ? $requested : 'o
                     </article>
                 </div>
 
-                <!-- CHART ROW 4 — Age distribution + Inmates per unit -->
-                <div class="chart-grid chart-grid--2">
+                <!-- CHART ROW 4 — Age distribution (full width) -->
+                <div class="chart-grid">
                     <article class="card">
                         <header class="card__header">
                             <h2 class="card__title">Age Distribution</h2>
                         </header>
                         <div class="chart-container">
                             <canvas id="chartAge" height="220"></canvas>
-                        </div>
-                    </article>
-
-                    <article class="card">
-                        <header class="card__header">
-                            <h2 class="card__title">PDL per Jail Unit</h2>
-                        </header>
-                        <div class="chart-container">
-                            <canvas id="chartUnits" height="220"></canvas>
                         </div>
                     </article>
                 </div>
