@@ -556,6 +556,92 @@ class Report
     }
 
     /* ============================================================
+       INMATES — filtered list (drill-down from a report cell)
+       ============================================================ */
+
+    public function inmatesByFilter(string $filter, array $params = []): array
+    {
+        $allowed = [
+            'detainee_male','detainee_female','detainee_total',
+            'municipal_male','municipal_female',
+            'city_male','city_female',
+            'provincial_male','provincial_female',
+            'insular_male','insular_female',
+            'unclassified_male','unclassified_female',
+            'sentenced_total',
+        ];
+        if (!in_array($filter, $allowed, true)) {
+            throw new \InvalidArgumentException('Unknown filter');
+        }
+
+        $where  = ['i.custody_status = "In Custody"'];
+        $types  = '';
+        $values = [];
+
+        // Classification
+        if (str_starts_with($filter, 'detainee')) {
+            $where[] = 'i.classification IN ("Awaiting Trial", "PDL")';
+        } elseif ($filter === 'sentenced_total' || preg_match('/^(municipal|city|provincial|insular|unclassified)_/', $filter)) {
+            $where[] = 'i.classification = "Sentenced"';
+        }
+
+        // Prisoner class
+        foreach (['municipal' => 'Municipal', 'city' => 'City', 'provincial' => 'Provincial', 'insular' => 'Insular'] as $prefix => $class) {
+            if (str_starts_with($filter, $prefix . '_')) {
+                $where[]  = 'i.prisoner_class = ?';
+                $types   .= 's';
+                $values[] = $class;
+                break;
+            }
+        }
+        if (str_starts_with($filter, 'unclassified_')) {
+            $where[] = 'i.prisoner_class IS NULL';
+        }
+
+        // Sex
+        if (str_ends_with($filter, '_male'))   $where[] = 'i.sex = "Male"';
+        if (str_ends_with($filter, '_female')) $where[] = 'i.sex = "Female"';
+
+        // Municipality / barangay scope
+        if (!empty($params['municipality'])) {
+            $where[]  = 'm.name = ?';
+            $types   .= 's';
+            $values[] = $params['municipality'];
+        }
+        if (!empty($params['barangay'])) {
+            $where[]  = 'b.name = ?';
+            $types   .= 's';
+            $values[] = $params['barangay'];
+        }
+
+        $sql = '
+            SELECT
+                i.inmate_number,
+                i.first_name, i.middle_name, i.last_name, i.suffix,
+                i.classification, i.prisoner_class, i.sex,
+                i.date_of_birth,
+                COALESCE(m.name, "—") AS municipality,
+                COALESCE(b.name, "—") AS barangay,
+                i.committed_at
+            FROM inmates i
+            LEFT JOIN municipalities m ON m.id = i.municipality_id
+            LEFT JOIN barangays     b ON b.id = i.barangay_id
+            WHERE ' . implode(' AND ', $where) . '
+            ORDER BY i.last_name, i.first_name
+            LIMIT 500
+        ';
+
+        $stmt = $this->db->prepare($sql);
+        if ($types !== '') {
+            $stmt->bind_param($types, ...$values);
+        }
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        return $rows;
+    }
+
+    /* ============================================================
        ESCORTED PDL — by municipality × purpose × sex
        ============================================================ */
 

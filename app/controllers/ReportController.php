@@ -61,6 +61,9 @@ class ReportController
             case 'escorts-by-barangay':
                 $this->escortsByBarangay();
                 break;
+            case 'inmates-by-filter':
+                $this->inmatesByFilter();
+                break;
             default:
                 Response::json(false, 'Unsupported request.');
         }
@@ -115,6 +118,57 @@ class ReportController
             'totals'   => $totals,
             'percents' => $percents,
         ]);
+    }
+
+    /* ============================================================
+       INMATES — filtered list (drill-down from a report cell)
+       ============================================================ */
+
+    private function inmatesByFilter(): void
+    {
+        $filter = trim((string) ($_GET['filter'] ?? ''));
+        $params = [
+            'municipality' => trim((string) ($_GET['municipality'] ?? '')),
+            'barangay'     => trim((string) ($_GET['barangay'] ?? '')),
+        ];
+
+        try {
+            $rows = $this->model->inmatesByFilter($filter, $params);
+        } catch (\InvalidArgumentException $e) {
+            Response::json(false, 'Invalid filter.');
+            return;
+        } catch (\Throwable $e) {
+            error_log('inmatesByFilter: ' . $e->getMessage());
+            Response::json(false, 'Could not load inmate list.');
+            return;
+        }
+
+        Response::json(true, 'OK', [
+            'report' => 'inmates-by-filter',
+            'meta' => [
+                'title'     => 'MATCHING PDL',
+                'facility'  => 'Zamboanga Sibugay',
+                'subtitle'  => $this->describeFilter($filter, $params),
+                'generated' => date('M j, Y g:i A'),
+            ],
+            'rows'   => $rows,
+            'totals' => ['count' => count($rows)],
+        ]);
+    }
+
+    private function describeFilter(string $filter, array $p): string
+    {
+        $parts = [];
+        if (str_starts_with($filter, 'detainee')) $parts[] = 'Detainee';
+        foreach (['municipal' => 'Municipal', 'city' => 'City', 'provincial' => 'Provincial', 'insular' => 'Insular', 'unclassified' => 'Unclassified'] as $k => $v) {
+            if (str_starts_with($filter, $k . '_')) { $parts[] = $v; break; }
+        }
+        if ($filter === 'sentenced_total') $parts[] = 'Sentenced';
+        if (str_ends_with($filter, '_male'))   $parts[] = 'Male';
+        if (str_ends_with($filter, '_female')) $parts[] = 'Female';
+        if ($p['municipality'] !== '') $parts[] = 'in ' . $p['municipality'];
+        if ($p['barangay'] !== '')     $parts[] = 'in Brgy. ' . $p['barangay'];
+        return implode(' · ', $parts) ?: 'Filtered list';
     }
 
     /* ============================================================

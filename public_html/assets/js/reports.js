@@ -113,7 +113,9 @@
           '<i class="bi bi-chevron-right report-row__caret" aria-hidden="true"></i>' +
         '</span>';
 
-      tr.addEventListener('click', function () {
+      tr.addEventListener('click', function (e) {
+        // If the user clicked a number cell (data-filter), don't open barangay modal
+        if (e.target.closest('td[data-filter]')) return;
         openDrilldown(originalText);
       });
     });
@@ -242,14 +244,16 @@
         '</thead><tbody>';
 
     rows.forEach(function (r) {
+      var brgy = esc(r.barangay);
+      var muni = drilldownTitle ? (drilldownTitle.textContent || '').replace(/^Barangays of /, '') : '';
       html += '<tr>' +
-        '<td>' + esc(r.barangay) + '</td>' +
-        '<td class="ta-right">' + num(r.detainee_male) + '</td>' +
+        '<td>' + brgy + '</td>' +
+        '<td class="ta-right report-cell--clickable" data-filter="detainee_male" data-municipality="' + esc(muni) + '" data-barangay="' + brgy + '">' + num(r.detainee_male) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.detainee_total) + '</strong></td>' +
-        '<td class="ta-right">' + num(r.municipal_male) + '</td>' +
-        '<td class="ta-right">' + num(r.city_male) + '</td>' +
-        '<td class="ta-right">' + num(r.provincial_male) + '</td>' +
-        '<td class="ta-right">' + num(r.insular_male) + '</td>' +
+        '<td class="ta-right report-cell--clickable" data-filter="municipal_male" data-municipality="' + esc(muni) + '" data-barangay="' + brgy + '">' + num(r.municipal_male) + '</td>' +
+        '<td class="ta-right report-cell--clickable" data-filter="city_male" data-municipality="' + esc(muni) + '" data-barangay="' + brgy + '">' + num(r.city_male) + '</td>' +
+        '<td class="ta-right report-cell--clickable" data-filter="provincial_male" data-municipality="' + esc(muni) + '" data-barangay="' + brgy + '">' + num(r.provincial_male) + '</td>' +
+        '<td class="ta-right report-cell--clickable" data-filter="insular_male" data-municipality="' + esc(muni) + '" data-barangay="' + brgy + '">' + num(r.insular_male) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.sentenced_total) + '</strong></td>' +
         '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
         '</tr>';
@@ -270,6 +274,74 @@
   }
 
   /* ============================================================
+     INMATE LIST (drill-down from a report cell)
+     ============================================================ */
+
+  function renderInmateList(data) {
+    var rows = data.rows || [];
+
+    var html = renderReportHeader(data.meta);
+    if (!rows.length) {
+      drilldownBody.innerHTML = html + '<div class="data-table__empty">No matching PDL.</div>';
+      return;
+    }
+
+    html +=
+      '<div class="table-wrap report-table__wrap">' +
+      '<table class="report-table"><thead><tr>' +
+        '<th>Inmate #</th>' +
+        '<th>Name</th>' +
+        '<th>Sex</th>' +
+        '<th>Classification</th>' +
+        '<th>Prisoner Class</th>' +
+        '<th>Municipality</th>' +
+        '<th>Barangay</th>' +
+        '<th>Committed</th>' +
+      '</tr></thead><tbody>';
+
+    rows.forEach(function (r) {
+      var name = [r.last_name, ', ' + r.first_name, r.middle_name ? ' ' + r.middle_name : '', r.suffix ? ' ' + r.suffix : ''].join('');
+      html += '<tr>' +
+        '<td>' + esc(r.inmate_number) + '</td>' +
+        '<td>' + esc(name) + '</td>' +
+        '<td>' + esc(r.sex) + '</td>' +
+        '<td>' + esc(r.classification) + '</td>' +
+        '<td>' + esc(r.prisoner_class || '—') + '</td>' +
+        '<td>' + esc(r.municipality) + '</td>' +
+        '<td>' + esc(r.barangay) + '</td>' +
+        '<td>' + esc(r.committed_at || '—') + '</td>' +
+        '</tr>';
+    });
+
+    html += '</tbody><tfoot><tr><td colspan="8"><strong>Total: ' + rows.length + '</strong></td></tr></tfoot></table></div>';
+
+    drilldownBody.innerHTML = html;
+  }
+
+  function openInmateDrilldown(filter, municipality, barangay) {
+    if (!drilldownModal || !drilldownBody) return;
+
+    drilldownBody.innerHTML = '<div class="data-table__empty">Loading…</div>';
+    drilldownModal.classList.remove('is-hidden');
+    document.body.classList.add('modal-open');
+
+    var params = { filter: filter };
+    if (municipality) params.municipality = municipality;
+    if (barangay)     params.barangay = barangay;
+
+    api('inmates-by-filter', params)
+      .then(function (data) {
+        if (data.meta && data.meta.title && drilldownTitle) {
+          drilldownTitle.textContent = data.meta.title;
+        }
+        renderInmateList(data);
+      })
+      .catch(function (err) {
+        drilldownBody.innerHTML = '<div class="data-table__empty">' + esc(err.message) + '</div>';
+      });
+  }
+
+    /* ============================================================
      POPULATION — simple
      ============================================================ */
 
@@ -606,22 +678,23 @@
         '</thead><tbody>';
 
     rows.forEach(function (r) {
+      var m = esc(r.municipality);
       html += '<tr>' +
-        '<td>' + esc(r.municipality) + '</td>' +
-        '<td class="ta-right">' + num(r.detainee_male) + '</td>' +
-        '<td class="ta-right">' + num(r.municipal_male) + '</td>' +
-        '<td class="ta-right">' + num(r.provincial_male) + '</td>' +
-        '<td class="ta-right">' + num(r.insular_male) + '</td>' +
+        '<td>' + m + '</td>' +
+        '<td class="ta-right report-cell--clickable" data-filter="detainee_male" data-municipality="' + m + '">' + num(r.detainee_male) + '</td>' +
+        '<td class="ta-right report-cell--clickable" data-filter="municipal_male" data-municipality="' + m + '">' + num(r.municipal_male) + '</td>' +
+        '<td class="ta-right report-cell--clickable" data-filter="provincial_male" data-municipality="' + m + '">' + num(r.provincial_male) + '</td>' +
+        '<td class="ta-right report-cell--clickable" data-filter="insular_male" data-municipality="' + m + '">' + num(r.insular_male) + '</td>' +
         '<td class="ta-right"><strong>' + num(r.sentenced_total) + '</strong></td>' +
         '<td class="ta-right"><strong>' + num(r.grand_total) + '</strong></td>' +
         '</tr>';
     });
 
     html += '</tbody><tfoot><tr><td><strong>TOTAL</strong></td>' +
-      '<td class="ta-right">' + num(totals.detainee_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.municipal_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.provincial_male) + '</td>' +
-      '<td class="ta-right">' + num(totals.insular_male) + '</td>' +
+      '<td class="ta-right report-cell--clickable" data-filter="detainee_male">' + num(totals.detainee_male) + '</td>' +
+      '<td class="ta-right report-cell--clickable" data-filter="municipal_male">' + num(totals.municipal_male) + '</td>' +
+      '<td class="ta-right report-cell--clickable" data-filter="provincial_male">' + num(totals.provincial_male) + '</td>' +
+      '<td class="ta-right report-cell--clickable" data-filter="insular_male">' + num(totals.insular_male) + '</td>' +
       '<td class="ta-right">' + num(totals.sentenced_total) + '</td>' +
       '<td class="ta-right">' + num(totals.grand_total) + '</td>' +
       '</tr></tfoot></table></div>';
@@ -746,6 +819,17 @@
   if (monthInput) {
     monthInput.addEventListener('change', function () { load(); });
   }
+
+  // Click any clickable report cell → show matching inmate list in the drill-down modal
+  document.addEventListener('click', function (e) {
+    var cell = e.target.closest('td[data-filter]');
+    if (!cell) return;
+    openInmateDrilldown(
+      cell.dataset.filter,
+      cell.dataset.municipality || '',
+      cell.dataset.barangay || ''
+    );
+  });
 
   if (exportBtn) {
     exportBtn.addEventListener('click', function () {
