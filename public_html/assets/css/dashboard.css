@@ -16,3 +16,21 @@
 .chart-container canvas:hover{cursor:pointer}
 .compliance-row{transition:background .15s}
 .compliance-row:hover{background:rgba(37,99,235,.06)}
+
+
+
+/* --- CHART GROWTH FIX --- */
+.chart-container, 
+.card__body:has(> canvas),
+div:has(> canvas.chart-canvas) {
+    position: relative !important;
+    height: 240px !important; /* Hard limit */
+    max-height: 240px !important;
+    width: 100% !important;
+    overflow: hidden;
+}
+/* Ensure the canvas itself fills the container but doesn't exceed it */
+.chart-container canvas,
+.chart-canvas {
+    max-height: 100% !important;
+}

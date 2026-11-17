@@ -200,6 +200,7 @@
   var limit   = 20;
   var offset  = 0;
   var loaded  = false;
+  var loadToken = 0;
   var offenseFilterLoaded = false;
   var jailUnitFilterLoaded = false;
 
@@ -554,6 +555,7 @@
     var params = {
       q:               search ? search.value.trim() : '',
       status:          statusFilter ? statusFilter.value : '',
+      classification:  (document.getElementById('inmateClassificationFilter') || {}).value || '',
       jail_unit_id:    jailUnitFilter ? jailUnitFilter.value : '',
       province:        provinceSelectFilter.getValue(),
       municipality_id: municipalitySelectFilter.getValue(),
@@ -563,7 +565,9 @@
       offset:          offset
     };
 
+    var myToken = ++loadToken;
     inmatesApi('list', params).then(function (data) {
+      if (myToken !== loadToken) return;
       inmates = data.inmates || [];
       total = data.total || 0;
       loaded = true;
@@ -1169,8 +1173,24 @@
     });
   }
 
+  var classFilter = document.getElementById('inmateClassificationFilter');
+  if (classFilter) {
+    classFilter.addEventListener('change', function () {
+      offset = 0;
+      load(true);
+    });
+  }
+
   if (statusFilter) {
     statusFilter.addEventListener('change', function () {
+      offset = 0;
+      load(true);
+    });
+  }
+
+  var classFilter = document.getElementById('inmateClassificationFilter');
+  if (classFilter) {
+    classFilter.addEventListener('change', function () {
       offset = 0;
       load(true);
     });

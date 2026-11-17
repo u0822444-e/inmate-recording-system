@@ -1,13 +1,9 @@
-<?php
-declare(strict_types=1);
-use App\Services\Auth;
-if (!Auth::isLoggedIn())
-    return;
 
-$isInmatesActive = ($currentSection ?? '') === 'inmates';
-$isAdmin = Auth::isAdmin();
-?>
-<section id="dashboard-inmates" class="dashboard-section <?= $isInmatesActive ? 'is-visible' : '' ?>"
+
+
+
+        
+"
     data-is-admin="<?= $isAdmin ? '1' : '0' ?>">
 
     <header class="section-header">
@@ -37,12 +33,21 @@ $isAdmin = Auth::isAdmin();
                         placeholder="Search by inmate no., case ref., or name" aria-label="Search inmates">
                 </div>
 
-                <select id="inmateStatusFilter" class="input-select" aria-label="Filter by custody status">
+                <select id="inmateClassificationFilter" class="input-select" aria-label="Filter by classification">
+                    <option value="">All classifications</option>
+                    <option value="PDL">PDL</option>
+                    <option value="Awaiting Trial">Awaiting Trial</option>
+                    <option value="Sentenced">Sentenced</option>
+                </select>
+          <select id="inmateStatusFilter" class="input-select" aria-label="Filter by custody status">
                     <option value="">All statuses</option>
                     <option value="In Custody">In Custody</option>
                     <option value="Transferred">Transferred</option>
                 </select>
 
+                
+                
+                <div id="inmateCellFilterWrap" class="filter-select-wrap" style="flex: 1; min-width: 120px;"></div>
                 <select id="inmateOffenseFilter" class="input-select" aria-label="Filter by offense">
                     <option value="">All offenses</option>
                 </select>

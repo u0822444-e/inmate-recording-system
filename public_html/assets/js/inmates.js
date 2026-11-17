@@ -542,90 +542,79 @@ window.applyInmateFilter = function (f) {
   f = f || {};
   console.log("[drill] applyInmateFilter", f);
 
-  var search    = document.getElementById("inmateSearch");
+  var classSel = document.getElementById("inmateClassificationFilter");
   var statusSel = document.getElementById("inmateStatusFilter");
-  var offenseSel= document.getElementById("inmateOffenseFilter");
+  var offenseSel = document.getElementById("inmateOffenseFilter");
+  var search = document.getElementById("inmateSearch");
+
+  // Clear search first — never mix drill filters with text search
+  if (search) { search.value = ""; }
 
   var applied = false;
 
-  // classification / custody status → #inmateStatusFilter
-  var classSel = document.getElementById("inmateClassificationFilter");
-  var statusVal = f.classification || f.custody;
+  // 1. classification → #inmateClassificationFilter (preferred path)
   if (f.classification && classSel) {
     classSel.value = f.classification;
     classSel.dispatchEvent(new Event("change", { bubbles: true }));
-    classSel = null;
-    // fall through to trigger the loader
-    if (typeof window.loadInmates === "function") { try { window.loadInmates(); return; } catch (e) {} }
+    applied = true;
   }
-  if (statusVal && statusSel) {
-    var found = false;
-    Array.from(statusSel.options).forEach(function (o) {
-      if (o.value.toLowerCase() === String(statusVal).toLowerCase() ||
-          o.textContent.trim().toLowerCase() === String(statusVal).toLowerCase()) {
-        statusSel.value = o.value; found = true;
-      }
-    });
-    if (!found) {
-      // try looser contains match (handles "Sentenced" vs "sentenced_pdl")
-      Array.from(statusSel.options).forEach(function (o) {
-        if (o.value.toLowerCase().includes(String(statusVal).toLowerCase()) ||
-            o.textContent.toLowerCase().includes(String(statusVal).toLowerCase())) {
-          statusSel.value = o.value; found = true;
-        }
-      });
-    }
-    if (!found && search) { search.value = statusVal; applied = true; }
+
+  // 2. custody → #inmateStatusFilter
+  if (f.custody && statusSel) {
+    statusSel.value = f.custody;
     statusSel.dispatchEvent(new Event("change", { bubbles: true }));
     applied = true;
   }
 
-  // offense (top_offenses chart)
+  // 3. offense → #inmateOffenseFilter (matches by textContent)
   if (f.offense && offenseSel) {
     var found = false;
     Array.from(offenseSel.options).forEach(function (o) {
-      if (o.value.toLowerCase() === String(f.offense).toLowerCase() ||
+      if (o.value === f.offense ||
           o.textContent.trim().toLowerCase() === String(f.offense).toLowerCase()) {
         offenseSel.value = o.value; found = true;
       }
     });
-    if (!found && search) { search.value = f.offense; applied = true; }
-    offenseSel.dispatchEvent(new Event("change", { bubbles: true }));
-    applied = true;
+    if (found) {
+      offenseSel.dispatchEvent(new Event("change", { bubbles: true }));
+      applied = true;
+    }
   }
 
-  // drug cases / age group → free text (no dedicated select)
-  var textTerm = f.drug || f.age_group || "";
-  if (textTerm && search) {
-    search.value = textTerm;
-    search.dispatchEvent(new Event("input", { bubbles: true }));
-    applied = true;
-  }
-
-  // unit → also lives in a select inside the filter toolbar; try by name
+  // 4. unit → find select by name
   if (f.unit) {
     var u = document.querySelector('select[name="unit"]')
-         || document.querySelector('select[name="jail_unit"]');
-    if (u) { u.value = f.unit; u.dispatchEvent(new Event("change", { bubbles: true })); applied = true; }
+         || document.querySelector('select[name="jail_unit_id"]')
+         || document.getElementById("inmateJailUnitFilter");
+    if (u) {
+      u.value = f.unit;
+      u.dispatchEvent(new Event("change", { bubbles: true }));
+      applied = true;
+    }
   }
 
-  // admitted month
-  if (f.admitted_month) {
-    var m = document.querySelector('input[name="admitted_month"]')
-         || document.querySelector('input[type="month"]');
-    if (m) { m.value = f.admitted_month; m.dispatchEvent(new Event("change", { bubbles: true })); applied = true; }
+  // 5. age_group / drug / admitted_month → NOT a search term.
+  //    These are wired into the params of load() by a different selector
+  //    (age_group has no dedicated <select>, so we skip server-side filtering
+  //     and let the load() call fall back to "show everything" instead of
+  //     polluting the search box)
+  if (f.age_group) {
+    var ageSel = document.getElementById("inmateAgeGroupFilter");
+    if (ageSel) { ageSel.value = f.age_group; ageSel.dispatchEvent(new Event("change", { bubbles: true })); applied = true; }
+  }
+  if (f.drug) {
+    var drugSel = document.getElementById("inmateDrugFilter");
+    if (drugSel) { drugSel.value = f.drug; drugSel.dispatchEvent(new Event("change", { bubbles: true })); applied = true; }
   }
 
-  if (!applied) console.warn("[drill] no matching input for filter", f);
+  if (!applied) {
+    console.warn("[drill] no matching input for filter", f);
+  }
 
-  // force table reload — try the global loader first, else click a "filter" btn
+  // Force a single, filtered load
   if (typeof window.loadInmates === "function") {
     try { window.loadInmates(); return; } catch (e) { console.warn(e); }
   }
-  var btn = document.querySelector('[data-action="filter-inmates"]')
-         || document.getElementById("inmateFilterBtn")
-         || document.querySelector('#inmatesSection .filter-btn');
-  if (btn) btn.click();
 };
 
 document.addEventListener("section:changed", function (e) {

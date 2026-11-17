@@ -550,6 +550,37 @@
   var charts = {};
   var rendering = false;
 
+
+  // --- CHART RESIZE FIX ---
+  if (window.Chart) {
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.elements.arc.hoverOffset = 0; // Prevents doughnut pop-out
+    Chart.defaults.elements.arc.hoverBorderWidth = 0;
+    Chart.defaults.elements.bar.hoverBorderWidth = 0;
+    Chart.defaults.elements.line.hoverBorderWidth = 0;
+    Chart.defaults.animation = false; // Prevents animation-based resizing
+  }
+
+  // --- RESIZE OBSERVER FIX ---
+  // Force all chart containers to have a fixed height and ignore Chart.js resizing
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.chart-container').forEach(el => {
+      el.style.position = 'relative';
+      el.style.height = '240px'; // Hard-code height
+      el.style.maxHeight = '240px';
+      
+      const resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+          if (entry.contentRect.height > 240) {
+            el.style.height = '240px'; // Force it back down if Bootstrap tries to expand it
+            el.style.maxHeight = '240px';
+          }
+        }
+      });
+      resizeObserver.observe(el);
+    });
+  });
+
   function safeDestroy(key, canvas) {
     if (charts[key]) {
       try {
@@ -665,6 +696,12 @@ var THEME = {
 
   if (window.Chart) {
     Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
+    // Prevent charts from resizing when clicked/hovered
+    Chart.defaults.elements.arc.hoverOffset = 0;
+    Chart.defaults.elements.bar.hoverBorderWidth = 0;
+    Chart.defaults.elements.line.hoverBorderWidth = 0;
+    Chart.defaults.maintainAspectRatio = false;
+
     Chart.defaults.color = "#475569";
     Chart.defaults.plugins.legend.labels.usePointStyle = true;
     Chart.defaults.plugins.legend.labels.boxWidth = 8;
@@ -756,6 +793,9 @@ var THEME = {
           }],
         },
         options: {
+          
+
+
           cutout: "62%",
           plugins: {
             legend: { position: "bottom", display: a.classification.length > 1 },

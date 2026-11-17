@@ -208,6 +208,8 @@ class InmateController
         $classification = trim((string) ($_GET['classification'] ?? ''));
         $offenseName    = trim((string) ($_GET['offense'] ?? ''));
         $unitName       = trim((string) ($_GET['unit'] ?? ''));
+        $cell           = trim((string) ($_GET['cell'] ?? ''));
+        $cell           = trim((string) ($_GET['cell'] ?? ''));
         $drugType       = trim((string) ($_GET['drug'] ?? ''));
         $ageGroup       = trim((string) ($_GET['age_group'] ?? ''));
         $admittedMonth  = trim((string) ($_GET['admitted_month'] ?? ''));
@@ -257,7 +259,7 @@ class InmateController
         }
 
         if ($classification !== '') {
-            $sql .= ' AND i.classification = ?';
+            $sql .= " AND TRIM(i.classification) = ?";
             $params[] = $classification;
             $types .= 's';
         }
@@ -265,6 +267,12 @@ class InmateController
         if ($offenseName !== '') {
             $sql .= ' AND o.name = ?';
             $params[] = $offenseName;
+            $types .= 's';
+        }
+
+        if ($cell !== '') {
+            $sql .= ' AND i.cell = ?';
+            $params[] = $cell;
             $types .= 's';
         }
 
